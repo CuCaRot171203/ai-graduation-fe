@@ -1,85 +1,24 @@
+import SidebarStudent from '../../components/SidebarStudent'
+import TheHeader from '../../components/TheHeader'
+
+const USER_DASHBOARD_AVATAR =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuA_CYgB6LIMa6G-_Uwi09br1namMI790E7A5O26R5uaZZd9UFQkXLpRVPZnSwg-HLjGJxgBFhFkIkv575hDLVnLUVYrV1_sHXbrtZ_QzPRZjEpKwtlQiukoEPFhlAmCJO875oOxhaVrhud6ejubHm1sWav1EfGGoflJLsPc6h37X2VgSSVpGYECJ7zd6JkuGh09AqztGdmw331FhlgKhcybtpe7kuQ8zwcJQGg_juHnWRtI6NZiwejwnYNhZkW9veAe3sEgJELRfh3K'
+
 export default function UserAdmin() {
   return (
     <div className="flex h-screen overflow-hidden bg-background-light font-display text-slate-900 dark:bg-background-dark dark:text-slate-100">
-      <aside className="flex h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3 p-6">
-          <div className="rounded-lg bg-primary p-2 text-white">
-            <span className="material-symbols-outlined block">
-              school
-            </span>
-          </div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            ExamPro
-          </h1>
-        </div>
-
-        <nav className="flex-1 space-y-1 px-4">
-          <div className="flex items-center gap-3 rounded-xl bg-primary/10 px-4 py-3 font-semibold text-primary">
-            <span className="material-symbols-outlined">library_books</span>
-            <span className="text-sm font-medium">Danh sách đề thi</span>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">edit_note</span>
-            <span className="text-sm font-medium">Luyện đề</span>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">history</span>
-            <span className="text-sm font-medium">Lịch sử làm bài</span>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">leaderboard</span>
-            <span className="text-sm font-medium">Bảng xếp hạng</span>
-          </div>
-        </nav>
-
-        <div className="space-y-1 border-t border-slate-200 px-4 py-6 dark:border-slate-800">
-          <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">person</span>
-            <span className="text-sm font-medium">Hồ sơ cá nhân</span>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">settings</span>
-            <span className="text-sm font-medium">Cài đặt</span>
-          </div>
-          <div className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/10">
-            <span className="material-symbols-outlined">logout</span>
-            <span className="text-sm font-medium">Đăng xuất</span>
-          </div>
-        </div>
-      </aside>
+      <SidebarStudent variant="dashboard" activeItem="exams" />
 
       <main className="flex flex-1 flex-col overflow-y-auto">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8 dark:border-slate-800 dark:bg-slate-900">
-          <div className="relative w-96 max-w-full">
-            <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xl text-slate-400">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm kiếm đề thi, tài liệu..."
-              className="w-full rounded-xl border-none bg-slate-100 py-2 pl-10 pr-4 text-sm outline-none transition-all focus:ring-2 focus:ring-primary dark:bg-slate-800"
-            />
-          </div>
-          <div className="flex items-center gap-6">
-            <button className="relative text-slate-500 transition-colors hover:text-primary dark:text-slate-400">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-white bg-red-500 dark:border-slate-900" />
-            </button>
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-6 dark:border-slate-800">
-              <div className="text-right">
-                <p className="text-sm font-semibold">Alex Johnson</p>
-                <p className="text-xs text-slate-500">Học sinh lớp 12</p>
-              </div>
-              <div className="h-10 w-10 overflow-hidden rounded-full bg-slate-200">
-                <img
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_CYgB6LIMa6G-_Uwi09br1namMI790E7A5O26R5uaZZd9UFQkXLpRVPZnSwg-HLjGJxgBFhFkIkv575hDLVnLUVYrV1_sHXbrtZ_QzPRZjEpKwtlQiukoEPFhlAmCJO875oOxhaVrhud6ejubHm1sWav1EfGGoflJLsPc6h37X2VgSSVpGYECJ7zd6JkuGh09AqztGdmw331FhlgKhcybtpe7kuQ8zwcJQGg_juHnWRtI6NZiwejwnYNhZkW9veAe3sEgJELRfh3K"
-                  alt="User Profile"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            </div>
-          </div>
-        </header>
+        <TheHeader
+          variant="lecture"
+          searchPlaceholder="Tìm kiếm đề thi, tài liệu..."
+          userName="Alex Johnson"
+          userSubtitle="Học sinh lớp 12"
+          avatarUrl={USER_DASHBOARD_AVATAR}
+          avatarAlt="User Profile"
+          searchAreaClassName="!w-full max-w-md"
+        />
 
         <div className="space-y-8 p-8">
           <section className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">

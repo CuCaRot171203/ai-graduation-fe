@@ -1,6 +1,11 @@
 import { Input, Select, Tag, Button, Pagination } from 'antd'
+import SidebarStudent from '../../components/SidebarStudent'
+import TheHeader from '../../components/TheHeader'
 
 const { Search } = Input
+
+const STUDENT_AVATAR =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuBS-es88F2PUY9ei1Vet9xZq80MXX2efV1PxLvRue-JAJxj_iL_LX_Q-_3dkYb2ZkwW0IhYzB7R_V7eh4NblXgD7AY3y_vF1jfcVoz-AvUy9d85okFh0yKj72wEZpvbeuCYVG52hKthuaOTPLTm-ZRDP61tNtiob1MyA37Q4FtBinX21kGc-DkEp2mc0QtqD_CBtRctEDjZp3dA1RaDv3zKIGYn4yJJwfabl-1YZVH8f6O7jCkW4WK1gAwT-7AMkRlrnPQPjuOG5pfL'
 
 const mockExams = [
   {
@@ -32,84 +37,23 @@ const mockExams = [
 export default function ExamListScreen() {
   return (
     <div className="flex min-h-screen bg-background-light font-display text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      {/* Sidebar simples (placeholder) */}
-      <aside className="fixed z-50 flex h-full w-64 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3 p-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white shadow-lg shadow-primary/20">
-            <span className="material-symbols-outlined">auto_stories</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">ExamPro</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Hệ thống thi trực tuyến
-            </p>
-          </div>
-        </div>
+      <SidebarStudent variant="exam-list" activeItem="exams" />
 
-        <nav className="mt-4 flex-1 space-y-1 px-3">
-          <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">dashboard</span>
-            <span className="font-medium">Tổng quan</span>
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg border-r-4 border-primary bg-primary/10 px-4 py-3 text-left font-medium text-primary">
-            <span className="material-symbols-outlined text-primary">
-              description
-            </span>
-            <span>Danh sách đề thi</span>
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">history</span>
-            <span className="font-medium">Lịch sử làm bài</span>
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">leaderboard</span>
-            <span className="font-medium">Bảng xếp hạng</span>
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">person</span>
-            <span className="font-medium">Hồ sơ cá nhân</span>
-          </button>
-        </nav>
-
-        <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-          <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/10">
-            <span className="material-symbols-outlined">logout</span>
-            <span>Đăng xuất</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
       <div className="ml-64 flex flex-1 flex-col">
-        {/* Header */}
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8 dark:border-slate-800 dark:bg-slate-900">
-          <div className="w-full max-w-md">
+        <TheHeader
+          variant="student"
+          userName="Alex Johnson"
+          userSubtitle="Mã học sinh: 48291"
+          avatarUrl={STUDENT_AVATAR}
+          avatarAlt="User avatar"
+          searchSlot={
             <Search
               placeholder="Tìm kiếm nhanh..."
               allowClear
               className="[&_.ant-input]:rounded-xl [&_.ant-input]:bg-slate-50 [&_.ant-input]:dark:bg-slate-800"
             />
-          </div>
-          <div className="flex items-center gap-6">
-            <button className="relative rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-primary dark:border-slate-900" />
-            </button>
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-6 dark:border-slate-800">
-              <div className="text-right">
-                <p className="text-sm font-semibold">Alex Johnson</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Mã học sinh: 48291
-                </p>
-              </div>
-              <img
-                className="h-10 w-10 rounded-full border border-slate-200 object-cover dark:border-slate-700"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBS-es88F2PUY9ei1Vet9xZq80MXX2efV1PxLvRue-JAJxj_iL_LX_Q-_3dkYb2ZkwW0IhYzB7R_V7eh4NblXgD7AY3y_vF1jfcVoz-AvUy9d85okFh0yKj72wEZpvbeuCYVG52hKthuaOTPLTm-ZRDP61tNtiob1MyA37Q4FtBinX21kGc-DkEp2mc0QtqD_CBtRctEDjZp3dA1RaDv3zKIGYn4yJJwfabl-1YZVH8f6O7jCkW4WK1gAwT-7AMkRlrnPQPjuOG5pfL"
-                alt="User avatar"
-              />
-            </div>
-          </div>
-        </header>
+          }
+        />
 
         <main className="space-y-8 p-8">
           <div className="flex flex-col gap-6">

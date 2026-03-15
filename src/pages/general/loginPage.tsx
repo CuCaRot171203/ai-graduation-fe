@@ -1,7 +1,45 @@
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Button, Form, Input, message } from 'antd'
+import { login, getDashboardPathByRole } from '../../apis/authApi'
+
+const STORAGE_KEYS = {
+  ACCESS_TOKEN: 'accessToken',
+  REFRESH_TOKEN: 'refreshToken',
+  USER: 'user',
+} as const
 
 export default function LoginPage() {
+  const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const navigate = useNavigate()
+  const [form] = Form.useForm()
+
+  const onFinish = async (values: { email: string; password: string }) => {
+    setLoading(true)
+    try {
+      const res = await login({ email: values.email, password: values.password })
+      if (res.status === 'success' && res.data) {
+        const { user, accessToken, refreshToken } = res.data
+        try {
+          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
+          localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user))
+        } catch {
+          // ignore storage errors
+        }
+        message.success(res.message ?? 'Đăng nhập thành công')
+        const path = getDashboardPathByRole(user.role)
+        navigate(path, { replace: true })
+        return
+      }
+      message.error(res.message ?? 'Đăng nhập thất bại')
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Đăng nhập thất bại')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <main className="flex min-h-screen bg-gray-50 text-slate-900">
@@ -58,44 +96,46 @@ export default function LoginPage() {
           </div>
 
           {/* Login Form */}
-          <form className="space-y-6">
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-1 block text-sm font-semibold text-slate-700"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
+          <Form
+            form={form}
+            layout="vertical"
+            requiredMark={false}
+            onFinish={onFinish}
+            className="space-y-6"
+          >
+            <Form.Item
+              name="email"
+              label={<span className="text-sm font-semibold text-slate-700">Email</span>}
+              rules={[
+                { required: true, message: 'Vui lòng nhập email' },
+                { type: 'email', message: 'Email không hợp lệ' },
+              ]}
+            >
+              <Input
                 placeholder="name@example.com"
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-primary"
+                size="large"
+                className="rounded-xl border-gray-300 focus:border-transparent focus:ring-2 focus:ring-primary"
               />
-            </div>
+            </Form.Item>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-1 block text-sm font-semibold text-slate-700"
-              >
-                Mật khẩu
-              </label>
+            <Form.Item
+              name="password"
+              label={
+                <span className="text-sm font-semibold text-slate-700">Mật khẩu</span>
+              }
+              rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+            >
               <div className="relative">
-                <input
-                  id="password"
-                  name="password"
+                <Input
                   type={showPassword ? 'text' : 'password'}
-                  required
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-primary"
+                  size="large"
+                  className="rounded-xl border-gray-300 pr-10 focus:border-transparent focus:ring-2 focus:ring-primary [&_.ant-input]:rounded-xl"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="btn-transition absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-primary"
+                  className="btn-transition absolute right-3 top-1/2 z-10 -translate-y-1/2 p-1 text-gray-400 hover:text-primary"
                   aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                 >
                   <svg
@@ -120,7 +160,7 @@ export default function LoginPage() {
                   </svg>
                 </button>
               </div>
-            </div>
+            </Form.Item>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -137,31 +177,35 @@ export default function LoginPage() {
                   Ghi nhớ đăng nhập
                 </label>
               </div>
-              <a
-                href="#"
+              <Link
+                to="/forgot-password"
                 className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
               >
                 Quên mật khẩu?
-              </a>
+              </Link>
             </div>
 
-            <button
-              type="submit"
-              className="btn-transition active:scale-[0.98] w-full rounded-xl bg-primary py-3.5 px-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-primary/90 hover:shadow-xl"
-            >
-              Đăng nhập
-            </button>
-          </form>
+            <Form.Item className="mb-0">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                className="btn-transition active:scale-[0.98] w-full rounded-xl py-3.5 px-4 text-lg font-bold shadow-lg transition-all hover:shadow-xl [&.ant-btn]:h-auto [&.ant-btn]:py-3.5"
+              >
+                Đăng nhập
+              </Button>
+            </Form.Item>
+          </Form>
 
           <div className="mt-10 text-center">
             <p className="text-slate-600">
               Chưa có tài khoản?{' '}
-              <a
-                href="#"
+              <Link
+                to="/register"
                 className="border-b-2 border-transparent font-bold text-primary transition-colors hover:border-primary hover:text-primary/80"
               >
                 Đăng ký ngay
-              </a>
+              </Link>
             </p>
           </div>
         </div>
@@ -169,4 +213,3 @@ export default function LoginPage() {
     </main>
   )
 }
-

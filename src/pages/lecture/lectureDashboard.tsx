@@ -1,4 +1,6 @@
 import { Button, Table, Tag } from 'antd'
+import SidebarLecture from '../../components/SidebarLecture'
+import TheHeader from '../../components/TheHeader'
 
 const recentAssignments = [
   {
@@ -77,107 +79,23 @@ const columns = [
   },
 ]
 
+const LECTURE_AVATAR =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuALND6k2_wy0lcBZ1j7RmE8Do8IuT--SRJy0g-QEcbRwoRxGEFeGYXr8MVBf99ndf82s3AlqodutH8JIxd8TSx2oeBeNhd5cDAB2D6aCcknWAHXZJGJTWR3UO0sHznK4YPny6riiqomREFPRtOkevZx6eCPg64U5knKp4EYqR-gYZ-IBR7DMpVvxiCcbTMIlwH2qyFVIwOcnsSN2Fdsse0tsXpWiN21AJPxcBwx7JmDwmMgaB3hknDCsier31MNE2OUTyzbrIaSNmNt'
+
 export default function LectureDashboard() {
   return (
     <div className="flex min-h-screen overflow-hidden bg-background-light font-display text-slate-900 dark:bg-background-dark dark:text-slate-100">
-      {/* Sidebar */}
-      <aside className="fixed z-50 flex h-full w-64 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3 p-6">
-          <div className="flex items-center justify-center rounded-lg bg-primary p-1.5 text-white">
-            <span className="material-symbols-outlined text-2xl">school</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-primary">ExamPro</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Hệ thống quản lý thi
-            </p>
-          </div>
-        </div>
+      <SidebarLecture activeItem="dashboard" />
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
-          <button className="sidebar-item-active flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors">
-            <span className="material-symbols-outlined">dashboard</span>
-            Dashboard
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">edit_document</span>
-            Soạn đề thi
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">account_balance_wallet</span>
-            Bank đề cá nhân
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">send</span>
-            Giao bài cho lớp
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">groups</span>
-            Quản lý lớp học
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">assignment</span>
-            Danh sách bài đã giao
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <span className="material-symbols-outlined">bar_chart</span>
-            Thống kê kết quả
-          </button>
-
-          <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
-            <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">account_circle</span>
-              Hồ sơ giảng viên
-            </button>
-            <button className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/10">
-              <span className="material-symbols-outlined">logout</span>
-              Đăng xuất
-            </button>
-          </div>
-        </nav>
-      </aside>
-
-      {/* Main content */}
       <main className="ml-64 flex min-h-screen flex-1 flex-col">
-        {/* Header */}
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8 dark:border-slate-800 dark:bg-slate-900">
-          <div className="w-1/3">
-            <div className="group relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Tìm kiếm tài liệu, đề thi..."
-                className="w-full rounded-xl border-none bg-slate-100 py-2 pl-10 pr-4 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/50 dark:bg-slate-800"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <button className="relative text-slate-600 transition-colors hover:text-primary dark:text-slate-400">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-white bg-red-500 dark:border-slate-900" />
-            </button>
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-6 dark:border-slate-800">
-              <div className="hidden text-right sm:block">
-                <p className="text-sm font-semibold">TS. Nguyễn Văn A</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Giảng viên Công nghệ
-                </p>
-              </div>
-              <div className="h-10 w-10 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                <img
-                  alt="Avatar"
-                  className="h-full w-full object-cover"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuALND6k2_wy0lcBZ1j7RmE8Do8IuT--SRJy0g-QEcbRwoRxGEFeGYXr8MVBf99ndf82s3AlqodutH8JIxd8TSx2oeBeNhd5cDAB2D6aCcknWAHXZJGJTWR3UO0sHznK4YPny6riiqomREFPRtOkevZx6eCPg64U5knKp4EYqR-gYZ-IBR7DMpVvxiCcbTMIlwH2qyFVIwOcnsSN2Fdsse0tsXpWiN21AJPxcBwx7JmDwmMgaB3hknDCsier31MNE2OUTyzbrIaSNmNt"
-                />
-              </div>
-              <span className="material-symbols-outlined cursor-pointer text-slate-400">
-                keyboard_arrow_down
-              </span>
-            </div>
-          </div>
-        </header>
+        <TheHeader
+          variant="lecture"
+          searchPlaceholder="Tìm kiếm tài liệu, đề thi..."
+          userName="TS. Nguyễn Văn A"
+          userSubtitle="Giảng viên Công nghệ"
+          avatarUrl={LECTURE_AVATAR}
+          avatarAlt="Avatar"
+        />
 
         {/* Body */}
         <div className="mx-auto w-full max-w-[1400px] space-y-8 p-8">

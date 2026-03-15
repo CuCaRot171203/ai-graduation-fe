@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export default function LandingPage() {
   return (
     <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden bg-background-light text-slate-900 transition-colors duration-300 dark:bg-background-dark dark:text-slate-100">
@@ -40,9 +42,12 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="hidden h-10 items-center justify-center rounded-lg px-5 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800 sm:flex">
+            <Link
+              to="/login"
+              className="hidden h-10 items-center justify-center rounded-lg px-5 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800 sm:flex"
+            >
               Đăng nhập
-            </button>
+            </Link>
             <button className="flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90">
               Đăng ký
             </button>
@@ -554,7 +559,7 @@ export default function LandingPage() {
           </div>
 
           <div className="border-t border-slate-100 pt-8 text-center text-sm text-slate-400 dark:border-slate-900">
-            © 2024 ExamPro. All rights reserved.
+            © 2026 ExamPro. All rights reserved.
           </div>
         </div>
       </footer>

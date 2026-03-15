@@ -1,4 +1,6 @@
 import { Button, Select, Table, Tag } from 'antd'
+import SidebarAdmin from '../../components/SidebarAdmin'
+import TheHeader from '../../components/TheHeader'
 
 const { Option } = Select
 
@@ -95,117 +97,23 @@ const columns = [
   },
 ]
 
+const ADMIN_AVATAR =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuB2YKy8f18qbth7H0cAQCXkATE3MsAQI1ezzPpWzXe6rPZoXdaXFkOHWDNh_n3o9WSuxQnzQQHRulPPqiSTzhQRU4WouPHLDflw1Op4WRczR69w5aNyfwHxuxviXrwqctop8ZKROlr3gQeBRnAP-c48xnoMNwYidvstRG04ASbi78xM2l1H0BrWo0UkD0PQ4VbwcomtnA4bKLqtUoDeBmoQlF-Qslmu7jHBBUY_rDWMydmmWYHnyPJiwBGe__oS8uAzmgMvO9czNoIi'
+
 export default function AdminDashboard() {
   return (
     <div className="flex min-h-screen bg-background-light font-display dark:bg-background-dark">
-      {/* Sidebar */}
-      <aside className="fixed flex h-full w-64 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3 p-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white">
-            <span className="material-symbols-outlined">quiz</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-              ExamPro
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Bảng điều khiển Admin
-            </p>
-          </div>
-        </div>
+      <SidebarAdmin activeItem="dashboard" />
 
-        <nav className="flex-1 overflow-y-auto py-4">
-          <div className="space-y-1">
-            <button className="active-nav flex w-full items-center gap-3 px-6 py-3 text-left font-medium">
-              <span className="material-symbols-outlined">dashboard</span>
-              Dashboard
-            </button>
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">group</span>
-              Quản lý người dùng
-            </button>
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">school</span>
-              Quản lý giảng viên
-            </button>
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">description</span>
-              Quản lý đề thi
-            </button>
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">database</span>
-              Ngân hàng câu hỏi
-            </button>
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">category</span>
-              Danh mục môn học
-            </button>
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">bar_chart</span>
-              Thống kê &amp; báo cáo
-            </button>
-          </div>
-
-          <div className="mt-8 space-y-1 border-t border-slate-100 pt-8 dark:border-slate-800">
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">settings_suggest</span>
-              Cấu hình hệ thống
-            </button>
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">settings</span>
-              Cài đặt
-            </button>
-            <button className="flex w-full items-center gap-3 px-6 py-3 text-left text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20">
-              <span className="material-symbols-outlined">logout</span>
-              Đăng xuất
-            </button>
-          </div>
-        </nav>
-      </aside>
-
-      {/* Main content */}
       <main className="ml-64 flex min-h-screen flex-1 flex-col">
-        {/* Header */}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex-1 max-w-xl">
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Tìm kiếm đề thi, người dùng hoặc báo cáo..."
-                className="w-full rounded-xl border-none bg-slate-50 py-2 pl-10 pr-4 text-sm outline-none transition-all focus:ring-2 focus:ring-primary dark:bg-slate-800"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <button className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500 dark:border-slate-900" />
-            </button>
-            <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
-            <div className="group flex cursor-pointer items-center gap-3">
-              <div className="text-right">
-                <p className="leading-none text-sm font-semibold text-slate-900 dark:text-white">
-                  Alex Rivera
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Super Admin
-                </p>
-              </div>
-              <img
-                alt="Quản trị viên"
-                className="h-10 w-10 rounded-xl object-cover ring-2 ring-primary/10 transition-all group-hover:ring-primary/30"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2YKy8f18qbth7H0cAQCXkATE3MsAQI1ezzPpWzXe6rPZoXdaXFkOHWDNh_n3o9WSuxQnzQQHRulPPqiSTzhQRU4WouPHLDflw1Op4WRczR69w5aNyfwHxuxviXrwqctop8ZKROlr3gQeBRnAP-c48xnoMNwYidvstRG04ASbi78xM2l1H0BrWo0UkD0PQ4VbwcomtnA4bKLqtUoDeBmoQlF-Qslmu7jHBBUY_rDWMydmmWYHnyPJiwBGe__oS8uAzmgMvO9czNoIi"
-              />
-              <span className="material-symbols-outlined text-slate-400">
-                expand_more
-              </span>
-            </div>
-          </div>
-        </header>
+        <TheHeader
+          variant="admin"
+          searchPlaceholder="Tìm kiếm đề thi, người dùng hoặc báo cáo..."
+          userName="Alex Rivera"
+          userSubtitle="Super Admin"
+          avatarUrl={ADMIN_AVATAR}
+          avatarAlt="Quản trị viên"
+        />
 
         <div className="space-y-8 p-8">
           {/* Thống kê tổng quan */}
