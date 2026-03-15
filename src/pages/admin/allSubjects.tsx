@@ -61,7 +61,7 @@ const DEFAULT_PARAMS = {
   search: '',
   isActiveFilter: '' as '' | 'true' | 'false',
   sortBy: 'createdAt',
-  sortOrder: 'desc' as 'asc' | 'desc',
+  sortOrder: 'desc' as 'asc' | 'desc' | '',
 }
 
 function subjectToRow(s: Subject): SubjectRow {

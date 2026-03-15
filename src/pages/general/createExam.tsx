@@ -196,7 +196,7 @@ export default function CreateExam() {
 
                 <div className="flex items-center justify-end gap-3 pt-4">
                   <Button
-                    type="button"
+                    htmlType="button"
                     size="large"
                     className="font-semibold text-slate-500 hover:!bg-slate-50 hover:!text-slate-700 dark:hover:!bg-slate-800"
                     onClick={onCancel}

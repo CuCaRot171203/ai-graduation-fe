@@ -52,7 +52,7 @@ export type AdminUsersParams = {
   role?: string
   isActive?: boolean
   sortBy?: string
-  sortOrder?: 'asc' | 'desc'
+  sortOrder?: '' | 'asc' | 'desc'
 }
 
 function buildQueryString(params: AdminUsersParams): string {

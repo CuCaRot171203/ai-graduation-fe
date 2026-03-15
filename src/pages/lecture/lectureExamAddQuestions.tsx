@@ -74,7 +74,6 @@ export default function LectureExamAddQuestions() {
   const [form] = Form.useForm()
   const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([])
   const [loadingQuestions, setLoadingQuestions] = useState(false)
-  const [importedPreview, setImportedPreview] = useState<ExamQuestion[]>([])
   const [ocrPending, setOcrPending] = useState<{ sessionId: number; questions: ExamQuestion[] } | null>(null)
   const [reviewOcrLoading, setReviewOcrLoading] = useState(false)
   const [approveAllOcrLoading, setApproveAllOcrLoading] = useState(false)
@@ -92,13 +91,19 @@ export default function LectureExamAddQuestions() {
   }, [examIdNum])
 
   useEffect(() => {
-    fetchExamQuestions()
-  }, [fetchExamQuestions])
+    if (!examIdNum) return
+    let cancelled = false
+    const tid = setTimeout(() => { if (!cancelled) setLoadingQuestions(true) }, 0)
+    getExamQuestions(examIdNum, { page: 1, limit: 100 })
+      .then((res) => { if (!cancelled) setExamQuestions(res.data?.questions ?? []) })
+      .catch(() => { if (!cancelled) setExamQuestions([]) })
+      .finally(() => { if (!cancelled) setLoadingQuestions(false) })
+    return () => { cancelled = true; clearTimeout(tid) }
+  }, [examIdNum])
 
   const openImportModal = useCallback(() => {
     setImportModalOpen(true)
     setExcelFileList([])
-    setImportedPreview([])
     setSelectedTemplateId('')
     getExcelTemplates()
       .then((res) => {
@@ -114,16 +119,6 @@ export default function LectureExamAddQuestions() {
       .then(() => message.success('Đã tải file mẫu.'))
       .catch((err) => message.error(err?.message ?? 'Tải mẫu thất bại'))
   }
-
-  const closeImportPreview = useCallback(() => {
-    setImportedPreview([])
-    setImportModalOpen(false)
-    setAiScanModalOpen(false)
-    setExcelFileList([])
-    setAiScanFileList([])
-    setAiScanProgress(0)
-    fetchExamQuestions()
-  }, [fetchExamQuestions])
 
   const updateOcrQuestion = useCallback((index: number, field: keyof ExamQuestion, value: unknown) => {
     setOcrPending((prev) => {
@@ -219,7 +214,7 @@ export default function LectureExamAddQuestions() {
               </button>
               <button
                 type="button"
-                onClick={() => setImportModalOpen(true)}
+                onClick={openImportModal}
                 className="flex flex-col items-center rounded-2xl border-2 border-primary/30 bg-primary/5 p-8 text-center transition-all hover:border-primary hover:bg-primary/10 dark:border-primary/40 dark:bg-primary/10 dark:hover:bg-primary/20"
               >
                 <span className="material-symbols-outlined mb-4 text-5xl text-primary">upload_file</span>

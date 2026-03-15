@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { ReactKey } from 'react'
+import type { Key as ReactKey } from 'react'
 import { message, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import SidebarLecture from '../../components/SidebarLecture'

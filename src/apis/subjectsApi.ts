@@ -50,7 +50,7 @@ export type SubjectsParams = {
   search?: string
   isActive?: boolean
   sortBy?: string
-  sortOrder?: 'asc' | 'desc'
+  sortOrder?: 'asc' | 'desc' | ''
 }
 
 function buildQueryString(params: SubjectsParams): string {

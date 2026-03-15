@@ -63,6 +63,8 @@ const DEFAULT_ALL_PARAMS = {
 }
 const DEFAULT_PENDING_PARAMS = { page: 1, limit: 10, subjectId: undefined as number | undefined }
 
+type AllParams = typeof DEFAULT_ALL_PARAMS
+
 export default function ExamDashboard() {
   const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all')
   const [allParams, setAllParams] = useState(DEFAULT_ALL_PARAMS)
@@ -282,7 +284,6 @@ export default function ExamDashboard() {
   ]
 
   const currentParams = activeTab === 'all' ? allParams : pendingParams
-  const setCurrentParams = activeTab === 'all' ? setAllParams : setPendingParams
   const total = pagination.totalCount
   const from = total === 0 ? 0 : (pagination.currentPage - 1) * pagination.limit + 1
   const to = Math.min(pagination.currentPage * pagination.limit, total)
@@ -354,7 +355,7 @@ export default function ExamDashboard() {
               <Select
                 placeholder="Môn học"
                 value={currentParams.subjectId ?? undefined}
-                onChange={(v) => setCurrentParams((p) => ({ ...p, subjectId: v, page: 1 }))}
+                onChange={(v) => { if (activeTab === 'all') setAllParams((p) => ({ ...p, subjectId: v, page: 1 })); else setPendingParams((p) => ({ ...p, subjectId: v, page: 1 })) }}
                 options={[{ value: undefined, label: 'Tất cả môn' }, ...subjects.map((s) => ({ value: s.id, label: `${s.code} - ${s.name}` }))]}
                 className="w-48 [&_.ant-select-selector]:rounded-lg"
                 allowClear
@@ -363,7 +364,7 @@ export default function ExamDashboard() {
                 <Select
                   placeholder="Trạng thái"
                   value={allParams.status || undefined}
-                  onChange={(v) => setAllParams((p) => ({ ...p, status: v ?? '', page: 1 }))}
+                  onChange={(v) => setAllParams((p: AllParams) => ({ ...p, status: v ?? '', page: 1 }))}
                   options={STATUS_OPTIONS}
                   className="w-36 [&_.ant-select-selector]:rounded-lg"
                 />
@@ -404,7 +405,7 @@ export default function ExamDashboard() {
                   size="small"
                   disabled={pagination.currentPage <= 1}
                   icon={<span className="material-symbols-outlined text-lg">chevron_left</span>}
-                  onClick={() => setCurrentParams((p) => ({ ...p, page: p.page - 1 }))}
+                  onClick={() => { if (activeTab === 'all') setAllParams((p) => ({ ...p, page: p.page - 1 })); else setPendingParams((p) => ({ ...p, page: p.page - 1 })) }}
                 />
                 {Array.from({ length: Math.min(5, Math.max(1, pagination.totalPages)) }, (_, i) => {
                   const page = i + 1
@@ -414,7 +415,7 @@ export default function ExamDashboard() {
                       type={pagination.currentPage === page ? 'primary' : 'text'}
                       size="small"
                       className="min-w-8"
-                      onClick={() => setCurrentParams((p) => ({ ...p, page }))}
+                      onClick={() => { if (activeTab === 'all') setAllParams((p) => ({ ...p, page })); else setPendingParams((p) => ({ ...p, page })) }}
                     >
                       {page}
                     </Button>
@@ -427,7 +428,7 @@ export default function ExamDashboard() {
                       type="text"
                       size="small"
                       className="min-w-8"
-                      onClick={() => setCurrentParams((p) => ({ ...p, page: pagination.totalPages }))}
+                      onClick={() => { if (activeTab === 'all') setAllParams((p) => ({ ...p, page: pagination.totalPages })); else setPendingParams((p) => ({ ...p, page: pagination.totalPages })) }}
                     >
                       {pagination.totalPages}
                     </Button>
@@ -438,7 +439,7 @@ export default function ExamDashboard() {
                   size="small"
                   disabled={pagination.currentPage >= pagination.totalPages}
                   icon={<span className="material-symbols-outlined text-lg">chevron_right</span>}
-                  onClick={() => setCurrentParams((p) => ({ ...p, page: p.page + 1 }))}
+                  onClick={() => { if (activeTab === 'all') setAllParams((p) => ({ ...p, page: p.page + 1 })); else setPendingParams((p) => ({ ...p, page: p.page + 1 })) }}
                 />
               </div>
             </div>
