@@ -64,7 +64,7 @@ function buildQueryString(params: AdminUsersParams): string {
   if (params.isActive !== undefined && params.isActive !== null)
     search.set('isActive', String(params.isActive))
   if (params.sortBy != null && params.sortBy !== '') search.set('sortBy', params.sortBy)
-  if (params.sortOrder != null && params.sortOrder !== '') search.set('sortOrder', params.sortOrder)
+  if (params.sortOrder != null) search.set('sortOrder', params.sortOrder)
   const q = search.toString()
   return q ? `?${q}` : ''
 }
@@ -205,11 +205,18 @@ export async function patchAdminUserStatus(
 // --- GET /api/admin/exams ---
 export type AdminExam = {
   id: number
+  code?: string
   title?: string
   name?: string
+  description?: string | null
   status?: string
   subjectId?: number
   subject?: { id: number; name?: string; code?: string }
+  totalQuestions?: number
+  questionCount?: number
+  durationMinutes?: number
+  createdBy?: { id: number; fullName?: string; email?: string }
+  creator?: { id: number; fullName?: string }
   createdAt?: string
   updatedAt?: string
   [key: string]: unknown
@@ -261,4 +268,108 @@ export async function getAdminExams(params: AdminExamsParams = {}): Promise<Admi
   checkUnauthorized(res)
   if (!res.ok) throw new Error(json?.message ?? 'Lấy danh sách đề thi thất bại')
   return json as AdminExamsResponse
+}
+
+/** GET /api/admin/exams/pending - danh sách đề chờ duyệt */
+export async function getAdminExamsPending(params: {
+  page?: number
+  limit?: number
+  subjectId?: number
+} = {}): Promise<AdminExamsResponse> {
+  const base = getApiBaseUrl()
+  if (!base) throw new Error('VITE_API_BASE_URL is not set')
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const search = new URLSearchParams()
+  if (params.page != null) search.set('page', String(params.page))
+  if (params.limit != null) search.set('limit', String(params.limit))
+  if (params.subjectId != null && !Number.isNaN(params.subjectId)) search.set('subjectId', String(params.subjectId))
+  const q = search.toString()
+  const url = `${base}/api/admin/exams/pending${q ? `?${q}` : ''}`
+  const res = await fetch(url, { method: 'GET', headers })
+  const json = await res.json()
+  checkUnauthorized(res)
+  if (!res.ok) throw new Error(json?.message ?? 'Lấy danh sách đề chờ duyệt thất bại')
+  return json as AdminExamsResponse
+}
+
+/** Câu hỏi trong response review */
+export type AdminReviewQuestion = {
+  id: number
+  orderNumber: number
+  contentHtml: string
+  options: Record<string, string>
+  questionType: string
+  topic: string
+  bloomLevel: string
+  correctAnswer: string
+  explanationHtml?: string | null
+  hasImage: boolean
+  imageUrl?: string | null
+  imageDescription?: string | null
+  isAiGenerated: boolean
+}
+
+/** GET /api/admin/exams/:id/review - chi tiết đề để duyệt */
+export type AdminExamReviewResponse = {
+  status: string
+  data: {
+    exam: AdminExam & { questions?: AdminReviewQuestion[] }
+    stats: {
+      totalQuestions: number
+      byBloomLevel: Record<string, number>
+      byQuestionType: Record<string, number>
+      byTopic: Record<string, number>
+      aiGenerated: number
+    }
+  }
+}
+
+export async function getAdminExamReview(id: number): Promise<AdminExamReviewResponse> {
+  const base = getApiBaseUrl()
+  if (!base) throw new Error('VITE_API_BASE_URL is not set')
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(`${base}/api/admin/exams/${id}/review`, { method: 'GET', headers })
+  const json = await res.json()
+  checkUnauthorized(res)
+  if (!res.ok) throw new Error(json?.message ?? 'Lấy chi tiết đề thi thất bại')
+  return json as AdminExamReviewResponse
+}
+
+/** PATCH /api/admin/exams/:id/approve - duyệt đề thi */
+export async function approveAdminExam(id: number): Promise<{ status: string; message?: string }> {
+  const base = getApiBaseUrl()
+  if (!base) throw new Error('VITE_API_BASE_URL is not set')
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(`${base}/api/admin/exams/${id}/approve`, { method: 'PATCH', headers })
+  const json = await res.json()
+  checkUnauthorized(res)
+  if (!res.ok) throw new Error(json?.message ?? 'Duyệt đề thi thất bại')
+  return json
+}
+
+/** PATCH /api/admin/exams/:id/reject - từ chối đề thi (body: { reason }), lý do tối thiểu 3 ký tự */
+export async function rejectAdminExam(
+  id: number,
+  body: { reason: string }
+): Promise<{ status: string; message?: string }> {
+  const base = getApiBaseUrl()
+  if (!base) throw new Error('VITE_API_BASE_URL is not set')
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(`${base}/api/admin/exams/${id}/reject`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
+  })
+  const json = await res.json()
+  checkUnauthorized(res)
+  if (!res.ok) throw new Error(json?.message ?? 'Từ chối đề thi thất bại')
+  return json
 }

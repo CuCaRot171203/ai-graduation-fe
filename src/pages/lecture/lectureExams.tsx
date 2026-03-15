@@ -10,10 +10,12 @@ import {
   downloadExcelTemplate,
   createExam,
   getExamById,
+  getExamQuestions,
   updateExam,
   deleteExam,
   submitExam,
   type Exam,
+  type ExamQuestion,
   type ExamsPagination,
   type ExcelTemplate,
 } from '../../apis/examsApi'
@@ -41,6 +43,21 @@ const STATUS_OPTIONS = [
   { value: 'draft', label: 'Nháp' },
   { value: 'rejected', label: 'Từ chối' },
 ]
+
+function stripHtml(html: string | undefined): string {
+  if (!html || typeof html !== 'string') return '—'
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '—'
+}
+
+function stripHtmlFull(html: string | undefined): string {
+  if (!html || typeof html !== 'string') return '—'
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
+}
+
+function formatTopic(topic: string | undefined): string {
+  if (!topic) return '—'
+  return topic.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
 
 const STATUS_TAG: Record<string, { color: string; label: string }> = {
   approved: { color: 'green', label: 'Đã duyệt' },
@@ -75,6 +92,10 @@ export default function LectureExams() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [detailExam, setDetailExam] = useState<Exam | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailQuestions, setDetailQuestions] = useState<ExamQuestion[]>([])
+  const [detailQuestionsLoading, setDetailQuestionsLoading] = useState(false)
+  const [questionsModalOpen, setQuestionsModalOpen] = useState(false)
+  const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<React.Key[]>([])
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingExam, setEditingExam] = useState<Exam | null>(null)
   const [editLoading, setEditLoading] = useState(false)
@@ -109,10 +130,32 @@ export default function LectureExams() {
   const openDetailModal = (examId: number) => {
     setDetailModalOpen(true)
     setDetailExam(null)
+    setDetailQuestions([])
     setDetailLoading(true)
+    setDetailQuestionsLoading(true)
     getExamById(examId)
-      .then((res) => setDetailExam(res.data))
-      .catch((err) => message.error(err?.message ?? 'Không tải được chi tiết đề thi'))
+      .then((res) => {
+        const exam = res.data
+        setDetailExam(exam)
+        const embeddedQuestions = (exam as { questions?: ExamQuestion[] }).questions
+        if (Array.isArray(embeddedQuestions) && embeddedQuestions.length >= 0) {
+          setDetailQuestions(embeddedQuestions)
+          setDetailQuestionsLoading(false)
+          return
+        }
+        getExamQuestions(examId, { page: 1, limit: 50 })
+          .then((qRes) => {
+            const raw = qRes.data as { questions?: ExamQuestion[]; items?: ExamQuestion[] } | undefined
+            const list = raw?.questions ?? raw?.items ?? []
+            setDetailQuestions(Array.isArray(list) ? list : [])
+          })
+          .catch(() => setDetailQuestions([]))
+          .finally(() => setDetailQuestionsLoading(false))
+      })
+      .catch((err) => {
+        message.error(err?.message ?? 'Không tải được chi tiết đề thi')
+        setDetailQuestionsLoading(false)
+      })
       .finally(() => setDetailLoading(false))
   }
 
@@ -480,7 +523,7 @@ export default function LectureExams() {
             <Modal
               title="Chi tiết đề thi"
               open={detailModalOpen}
-              onCancel={() => { setDetailModalOpen(false); setDetailExam(null) }}
+              onCancel={() => { setDetailModalOpen(false); setDetailExam(null); setDetailQuestions([]) }}
               footer={
                 detailExam ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -513,7 +556,7 @@ export default function LectureExams() {
                   </div>
                 ) : null
               }
-              width={560}
+              width={680}
               destroyOnHidden
             >
               {detailLoading ? (
@@ -531,6 +574,22 @@ export default function LectureExams() {
                     <p><span className="font-medium text-slate-500 w-28 inline-block">Ngày tạo:</span> {detailExam.createdAt ? new Date(detailExam.createdAt).toLocaleString('vi-VN') : '—'}</p>
                   </div>
                   <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+                    {detailQuestionsLoading ? (
+                      <p className="text-sm text-slate-500">Đang tải câu hỏi...</p>
+                    ) : detailQuestions.length === 0 ? (
+                      <p className="text-sm text-slate-500">Chưa có câu hỏi nào.</p>
+                    ) : (
+                      <Button
+                        type="default"
+                        className="w-full gap-2"
+                        icon={<span className="material-symbols-outlined">list</span>}
+                        onClick={() => setQuestionsModalOpen(true)}
+                      >
+                        Xem danh sách câu hỏi ({detailQuestions.length})
+                      </Button>
+                    )}
+                  </div>
+                  <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
                     <Button
                       type="primary"
                       size="large"
@@ -545,6 +604,81 @@ export default function LectureExams() {
               ) : (
                 <p className="py-4 text-slate-500">Không có dữ liệu.</p>
               )}
+            </Modal>
+
+            {/* Modal Danh sách câu hỏi - click hàng để mở/đóng nội dung đầy đủ */}
+            <Modal
+              title={`Danh sách câu hỏi (${detailQuestions.length})`}
+              open={questionsModalOpen}
+              onCancel={() => { setQuestionsModalOpen(false); setExpandedQuestionKeys([]) }}
+              footer={null}
+              width={720}
+              destroyOnHidden
+            >
+              <Table
+                size="small"
+                rowKey={(r, i) => String((r as ExamQuestion).id ?? `q-${i}`)}
+                dataSource={detailQuestions}
+                pagination={false}
+                expandable={{
+                  expandedRowKeys: expandedQuestionKeys,
+                  onExpand: (expanded, record) => {
+                    const r = record as ExamQuestion
+                    const idx = detailQuestions.indexOf(r)
+                    const keyStr = String(r.id ?? `q-${idx}`)
+                    setExpandedQuestionKeys((prev) =>
+                      expanded ? [...prev, keyStr] : prev.filter((k) => k !== keyStr)
+                    )
+                  },
+                  expandedRowRender: (record: ExamQuestion) => {
+                    const content = stripHtmlFull((record.contentHtml ?? record.content_html) as string)
+                    const options = (record.options ?? {}) as Record<string, string>
+                    const correct = (record.correctAnswer ?? record.correct_answer) as string
+                    const letters = ['A', 'B', 'C', 'D']
+                    return (
+                      <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
+                        <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                          <span className="text-slate-500 dark:text-slate-400">Nội dung: </span>
+                          {content}
+                        </p>
+                        <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
+                        <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                          {letters.map((letter) => {
+                            const text = options[letter] ?? '—'
+                            const isCorrect = correct === letter
+                            return (
+                              <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
+                                <span className="font-medium">{letter}.</span> {text}
+                                {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
+                              </li>
+                            )
+                          })}
+                        </ul>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Bloom: {(record.bloomLevel ?? record.bloom_level) ?? '—'} · Topic: {formatTopic(record.topic as string)}
+                        </p>
+                      </div>
+                    )
+                  },
+                }}
+                onRow={(record, index) => ({
+                  onClick: () => {
+                    const r = record as ExamQuestion
+                    const keyStr = String(r.id ?? `q-${index ?? detailQuestions.indexOf(r)}`)
+                    setExpandedQuestionKeys((prev) =>
+                      prev.includes(keyStr) ? prev.filter((k) => k !== keyStr) : [...prev, keyStr]
+                    )
+                  },
+                  style: { cursor: 'pointer' },
+                })}
+                columns={[
+                  { title: 'STT', key: 'stt', width: 52, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
+                  { title: 'Nội dung', key: 'content', ellipsis: true, render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
+                  { title: 'Đáp án', key: 'correct', width: 76, render: (_: unknown, r: ExamQuestion) => (r.correctAnswer ?? r.correct_answer) ?? '—' },
+                  { title: 'Bloom', key: 'bloom', width: 96, render: (_: unknown, r: ExamQuestion) => (r.bloomLevel ?? r.bloom_level) ?? '—' },
+                  { title: 'Topic', key: 'topic', width: 100, render: (_: unknown, r: ExamQuestion) => formatTopic(r.topic as string) },
+                ]}
+              />
             </Modal>
 
             {/* Modal Cập nhật đề thi */}

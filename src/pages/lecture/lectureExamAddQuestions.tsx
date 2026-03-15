@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Checkbox, Dropdown, Form, Input, Modal, Select, Table, Upload, message } from 'antd'
-import type { ColumnsType } from 'antd/es/table'
 import type { UploadFile } from 'antd'
 import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
@@ -44,6 +43,11 @@ const BLOOM_LEVEL_OPTIONS = [
 
 function stripHtml(html: string | undefined): string {
   if (!html || typeof html !== 'string') return '—'
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '—'
+}
+
+function stripHtmlFull(html: string | undefined): string {
+  if (!html || typeof html !== 'string') return '—'
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
 }
 
@@ -75,6 +79,8 @@ export default function LectureExamAddQuestions() {
   const [reviewOcrLoading, setReviewOcrLoading] = useState(false)
   const [approveAllOcrLoading, setApproveAllOcrLoading] = useState(false)
   const [saveOcrLoading, setSaveOcrLoading] = useState(false)
+  const [expandedExamQuestionKeys, setExpandedExamQuestionKeys] = useState<(string | number)[]>([])
+  const [expandedOcrKeys, setExpandedOcrKeys] = useState<(string | number)[]>([])
 
   const fetchExamQuestions = useCallback(() => {
     if (!examIdNum) return
@@ -164,19 +170,12 @@ export default function LectureExamAddQuestions() {
       .then(() => {
         message.success('Đã lưu câu hỏi vào đề.')
         setOcrPending(null)
+        setExpandedOcrKeys([])
         fetchExamQuestions()
       })
       .catch((err) => message.error(err?.message ?? 'Lưu vào đề thất bại'))
       .finally(() => setSaveOcrLoading(false))
   }, [examIdNum, ocrPending, fetchExamQuestions])
-
-  const questionPreviewColumns: ColumnsType<ExamQuestion> = [
-    { title: 'STT', key: 'stt', width: 60, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
-    { title: 'Nội dung', dataIndex: 'contentHtml', key: 'content', ellipsis: true, render: (v: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
-    { title: 'Đáp án đúng', dataIndex: 'correctAnswer', key: 'correct', width: 100, render: (v: unknown, r: ExamQuestion) => (r.correctAnswer ?? r.correct_answer) ?? '—' },
-    { title: 'Bloom', dataIndex: 'bloomLevel', key: 'bloom', width: 100, render: (v: unknown, r: ExamQuestion) => (r.bloomLevel ?? r.bloom_level) ?? '—' },
-    { title: 'Topic', dataIndex: 'topic', key: 'topic', width: 120, render: (v: unknown) => formatTopic(v as string) },
-  ]
 
   return (
     <div className="flex min-h-screen overflow-hidden bg-background-light font-display text-slate-900 dark:bg-background-dark dark:text-slate-100 antialiased">
@@ -253,6 +252,43 @@ export default function LectureExamAddQuestions() {
                     dataSource={ocrPending.questions}
                     pagination={{ pageSize: 5 }}
                     size="small"
+                    expandable={{
+                      expandedRowKeys: expandedOcrKeys,
+                      onExpand: (expanded, record) => {
+                        const key = `ocr-${(record as ExamQuestion).order_number ?? ocrPending.questions.indexOf(record as ExamQuestion)}`
+                        setExpandedOcrKeys((prev) => (expanded ? [...prev, key] : prev.filter((k) => k !== key)))
+                      },
+                      expandedRowRender: (record: ExamQuestion) => {
+                        const content = stripHtmlFull((record.contentHtml ?? record.content_html) as string)
+                        const options = (record.options ?? {}) as Record<string, string>
+                        const correct = (record.correct_answer ?? record.correctAnswer) as string
+                        return (
+                          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
+                            <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
+                            <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
+                            <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                              {['A', 'B', 'C', 'D'].map((letter) => {
+                                const text = options[letter] ?? '—'
+                                const isCorrect = correct === letter
+                                return (
+                                  <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
+                                    <span className="font-medium">{letter}.</span> {text}
+                                    {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          </div>
+                        )
+                      },
+                    }}
+                    onRow={(record, index) => ({
+                      onClick: () => {
+                        const key = `ocr-${(record as ExamQuestion).order_number ?? index ?? ocrPending.questions.indexOf(record as ExamQuestion)}`
+                        setExpandedOcrKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
+                      },
+                      style: { cursor: 'pointer' },
+                    })}
                     columns={[
                       { title: 'STT', key: 'stt', width: 56, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
                       { title: 'Nội dung', key: 'content', ellipsis: true, render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
@@ -325,17 +361,65 @@ export default function LectureExamAddQuestions() {
               </div>
             )}
 
-            {/* Bảng câu hỏi đã thêm vào đề */}
+            {/* Bảng câu hỏi đã thêm vào đề - click hàng để mở/đóng chi tiết */}
             <div className="mt-10">
               <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">
                 Câu hỏi trong đề ({examQuestions.length})
               </h3>
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/50">
                 <Table
-                  rowKey="id"
+                  rowKey={(r) => String((r as ExamQuestion).id ?? examQuestions.indexOf(r as ExamQuestion))}
                   loading={loadingQuestions}
                   dataSource={examQuestions}
                   pagination={{ pageSize: 10, showSizeChanger: false, showTotal: (t) => `Tổng ${t} câu` }}
+                  expandable={{
+                    expandedRowKeys: expandedExamQuestionKeys,
+                    onExpand: (expanded, record) => {
+                      const key = String((record as ExamQuestion).id ?? examQuestions.indexOf(record as ExamQuestion))
+                      setExpandedExamQuestionKeys((prev) =>
+                        expanded ? [...prev, key] : prev.filter((k) => k !== key)
+                      )
+                    },
+                    expandedRowRender: (record: ExamQuestion) => {
+                      const content = stripHtmlFull((record.contentHtml ?? record.content_html) as string)
+                      const options = (record.options ?? {}) as Record<string, string>
+                      const correct = (record.correctAnswer ?? record.correct_answer) as string
+                      const letters = ['A', 'B', 'C', 'D']
+                      return (
+                        <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
+                          <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                            <span className="text-slate-500 dark:text-slate-400">Nội dung: </span>
+                            {content}
+                          </p>
+                          <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
+                          <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                            {letters.map((letter) => {
+                              const text = options[letter] ?? '—'
+                              const isCorrect = correct === letter
+                              return (
+                                <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
+                                  <span className="font-medium">{letter}.</span> {text}
+                                  {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                          <p className="mt-2 text-xs text-slate-500">
+                            Bloom: {(record.bloomLevel ?? record.bloom_level) ?? '—'} · Topic: {formatTopic(record.topic as string)}
+                          </p>
+                        </div>
+                      )
+                    },
+                  }}
+                  onRow={(record, index) => ({
+                    onClick: () => {
+                      const key = String((record as ExamQuestion).id ?? index ?? examQuestions.indexOf(record as ExamQuestion))
+                      setExpandedExamQuestionKeys((prev) =>
+                        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+                      )
+                    },
+                    style: { cursor: 'pointer' },
+                  })}
                   columns={[
                     { title: 'STT', key: 'stt', width: 60, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
                     { title: 'Nội dung', key: 'content', ellipsis: true, render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
@@ -423,78 +507,71 @@ export default function LectureExamAddQuestions() {
         </Form>
       </Modal>
 
-      {/* Modal Import Excel */}
+      {/* Modal Import Excel - API trả về { data: { imported, errors, templateUsed } } */}
       <Modal
-        title={importedPreview.length > 0 ? 'Kết quả import' : 'Tải tập tin lên'}
+        title="Tải tập tin lên"
         open={importModalOpen}
-        onCancel={() => { if (importedPreview.length > 0) closeImportPreview(); else { setImportModalOpen(false); setExcelFileList([]) } }}
+        onCancel={() => { setImportModalOpen(false); setExcelFileList([]) }}
         footer={null}
-        width={importedPreview.length > 0 ? 720 : 520}
+        width={520}
         destroyOnHidden
       >
-        {importedPreview.length > 0 ? (
-          <>
-            <p className="mb-4 text-sm text-slate-500">Đã thêm {importedPreview.length} câu hỏi vào đề. Xác nhận để đóng và cập nhật danh sách.</p>
-            <Table rowKey="id" dataSource={importedPreview} columns={questionPreviewColumns} pagination={{ pageSize: 5 }} size="small" />
-            <div className="mt-4 flex justify-end">
-              <Button type="primary" onClick={closeImportPreview}>Xác nhận</Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="mb-4 text-sm text-slate-500">Hỗ trợ .xls, .xlsx, .csv. Vui lòng sử dụng file mẫu để tránh lỗi định dạng.</p>
-            <div className="mb-4">
-              <span className="mb-2 block text-sm font-medium">Chọn template</span>
-              <Select
-                className="w-full"
-                placeholder="Chọn template"
-                value={selectedTemplateId || undefined}
-                onChange={setSelectedTemplateId}
-                options={excelTemplates.map((t) => ({ value: t.id, label: t.name }))}
-              />
-            </div>
-            <Upload.Dragger accept=".xlsx,.xls,.csv" fileList={excelFileList} maxCount={1} beforeUpload={() => false} onChange={({ fileList }) => setExcelFileList(fileList)}>
-              <p className="py-8"><span className="material-symbols-outlined text-5xl text-primary">upload_file</span></p>
-              <p className="text-sm font-medium">Kéo file Excel vào đây hoặc chọn file</p>
-              <p className="mt-1 text-xs text-slate-500">Dung lượng tối đa 10MB</p>
-            </Upload.Dragger>
-            <div className="mt-6 flex items-center justify-between">
-              <Dropdown
-                menu={{
-                  items: excelTemplates.length
-                    ? excelTemplates.map((t) => ({ key: t.id, label: t.name, onClick: () => handleDownloadSample(t.id) }))
-                    : [{ key: 'load', label: 'Đang tải...', disabled: true }],
+        <p className="mb-4 text-sm text-slate-500">Hỗ trợ .xls, .xlsx, .csv. Vui lòng sử dụng file mẫu để tránh lỗi định dạng.</p>
+        <div className="mb-4">
+          <span className="mb-2 block text-sm font-medium">Chọn template</span>
+          <Select
+            className="w-full"
+            placeholder="Chọn template"
+            value={selectedTemplateId || undefined}
+            onChange={setSelectedTemplateId}
+            options={excelTemplates.map((t) => ({ value: t.id, label: t.name }))}
+          />
+        </div>
+        <Upload.Dragger accept=".xlsx,.xls,.csv" fileList={excelFileList} maxCount={1} beforeUpload={() => false} onChange={({ fileList }) => setExcelFileList(fileList)}>
+          <p className="py-8"><span className="material-symbols-outlined text-5xl text-primary">upload_file</span></p>
+          <p className="text-sm font-medium">Kéo file Excel vào đây hoặc chọn file</p>
+          <p className="mt-1 text-xs text-slate-500">Dung lượng tối đa 10MB</p>
+        </Upload.Dragger>
+        <div className="mt-6 flex items-center justify-between">
+          <Dropdown
+            menu={{
+              items: excelTemplates.length
+                ? excelTemplates.map((t) => ({ key: t.id, label: t.name, onClick: () => handleDownloadSample(t.id) }))
+                : [{ key: 'load', label: 'Đang tải...', disabled: true }],
+            }}
+            trigger={['click']}
+          >
+            <Button icon={<span className="material-symbols-outlined">download</span>}>Tải file Excel mẫu</Button>
+          </Dropdown>
+          <div className="flex gap-2">
+            <Button onClick={() => { setImportModalOpen(false); setExcelFileList([]) }}>Hủy</Button>
+            <Button
+              type="primary"
+              loading={importLoading}
+              disabled={excelFileList.length === 0 || !selectedTemplateId}
+              onClick={() => {
+                const file = excelFileList[0]?.originFileObj
+                if (!file || !examIdNum || !selectedTemplateId) return
+                setImportLoading(true)
+                importExamQuestionsFromExcel(examIdNum, file as File, selectedTemplateId)
+                  .then((res) => {
+                    const msg = res.message ?? `Import thành công ${res.data?.imported ?? 0} câu hỏi`
+                    message.success(msg)
+                    setImportModalOpen(false)
+                    setExcelFileList([])
+                    fetchExamQuestions()
+                    if (Array.isArray(res.data?.errors) && res.data.errors.length > 0) {
+                      message.warning(`Có ${res.data.errors.length} lỗi: ${res.data.errors.slice(0, 3).join(', ')}`)
+                    }
+                  })
+                  .catch((err) => message.error(err?.message ?? 'Import thất bại'))
+                  .finally(() => setImportLoading(false))
                 }}
-                trigger={['click']}
               >
-                <Button icon={<span className="material-symbols-outlined">download</span>}>Tải file Excel mẫu</Button>
-              </Dropdown>
-              <div className="flex gap-2">
-                <Button onClick={() => { setImportModalOpen(false); setExcelFileList([]) }}>Hủy</Button>
-                <Button
-                  type="primary"
-                  loading={importLoading}
-                  disabled={excelFileList.length === 0 || !selectedTemplateId}
-                  onClick={() => {
-                    const file = excelFileList[0]?.originFileObj
-                    if (!file || !examIdNum || !selectedTemplateId) return
-                    setImportLoading(true)
-                    importExamQuestionsFromExcel(examIdNum, file as File, selectedTemplateId)
-                      .then((res) => {
-                        const list = res.data?.questions ?? []
-                        setImportedPreview(list)
-                        if (list.length > 0) message.success(`Đã import ${list.length} câu hỏi.`)
-                      })
-                      .catch((err) => message.error(err?.message ?? 'Import thất bại'))
-                      .finally(() => setImportLoading(false))
-                  }}
-                >
-                  Upload file
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
+                Upload file
+              </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Modal AI quét ảnh - không preview, quét xong đóng modal và đẩy data xuống bảng trang */}

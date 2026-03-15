@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { ReactKey } from 'react'
 import { message, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import SidebarLecture from '../../components/SidebarLecture'
@@ -20,6 +21,11 @@ function getStoredUser(): LoginUser | null {
 }
 
 function stripHtml(html: string): string {
+  if (!html || typeof html !== 'string') return '—'
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
+}
+
+function stripHtmlFull(html: string | undefined): string {
   if (!html || typeof html !== 'string') return '—'
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
 }
@@ -52,6 +58,7 @@ export default function LectureQuestionBank() {
     totalPages: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [expandedRowKeys, setExpandedRowKeys] = useState<ReactKey[]>([])
 
   const fetchQuestions = useCallback(() => {
     setLoading(true)
@@ -203,6 +210,52 @@ export default function LectureQuestionBank() {
                 dataSource={questions}
                 rowKey="key"
                 loading={loading}
+                expandable={{
+                  expandedRowKeys,
+                  onExpand: (expanded, record) => {
+                    setExpandedRowKeys((prev) =>
+                      expanded ? [...prev, record.key] : prev.filter((k) => k !== record.key)
+                    )
+                  },
+                  expandedRowRender: (record) => {
+                    const content = stripHtmlFull(record.contentHtml)
+                    const options = record.options ?? {}
+                    const correct = record.correctAnswer
+                    const letters = ['A', 'B', 'C', 'D'] as const
+                    return (
+                      <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
+                        <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                          <span className="text-slate-500 dark:text-slate-400">Nội dung: </span>
+                          {content}
+                        </p>
+                        <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
+                        <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                          {letters.map((letter) => {
+                            const text = options[letter] ?? '—'
+                            const isCorrect = correct === letter
+                            return (
+                              <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
+                                <span className="font-medium">{letter}.</span> {text}
+                                {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
+                              </li>
+                            )
+                          })}
+                        </ul>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Bloom: {BLOOM_LEVEL[(record.bloomLevel || '').toLowerCase().replace(/\s+/g, '_')]?.label ?? record.bloomLevel ?? '—'} · Topic: {formatTopic(record.topic || '')}
+                        </p>
+                      </div>
+                    )
+                  },
+                }}
+                onRow={(record) => ({
+                  onClick: () => {
+                    setExpandedRowKeys((prev) =>
+                      prev.includes(record.key) ? prev.filter((k) => k !== record.key) : [...prev, record.key]
+                    )
+                  },
+                  style: { cursor: 'pointer' },
+                })}
                 pagination={{
                   current: pagination.page,
                   pageSize: pagination.limit,

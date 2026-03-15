@@ -306,12 +306,23 @@ export async function addQuestionToExam(
   return json
 }
 
+/** Response từ POST .../questions/import - Excel không trả về danh sách câu hỏi */
+export type ExcelImportResponse = {
+  status: string
+  message?: string
+  data: {
+    imported: number
+    errors: string[] | unknown[]
+    templateUsed?: string
+  }
+}
+
 /** POST /api/exams/:examId/questions/import - import câu hỏi từ Excel (multipart: file, templateId) */
 export async function importExamQuestionsFromExcel(
   examId: number,
   file: File,
   templateId: string
-): Promise<ExamQuestionsResponse> {
+): Promise<ExcelImportResponse> {
   const base = getApiBaseUrl()
   if (!base) throw new Error('VITE_API_BASE_URL is not set')
   const token = localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -328,7 +339,7 @@ export async function importExamQuestionsFromExcel(
   const json = await res.json()
   checkUnauthorized(res)
   if (!res.ok) throw new Error(json?.message ?? 'Import Excel thất bại')
-  return json as ExamQuestionsResponse
+  return json as ExcelImportResponse
 }
 
 /** POST /api/exams/:examId/questions/ocr - trích xuất câu hỏi từ ảnh (trả về sessionId + questions, chưa lưu) */
