@@ -5,11 +5,13 @@ import type { MenuProps } from 'antd'
 import {
   changePassword,
   getMe,
+  logout,
   updateMe,
   type AuthMeData,
   type ChangePasswordBody,
   type UpdateMeBody,
 } from '../apis/authApi'
+import { clearSessionAndRedirectToLogin } from '../utils/session'
 
 export type TheHeaderVariant = 'lecture' | 'admin' | 'student'
 
@@ -144,6 +146,10 @@ export default function TheHeader({
     }
   }
 
+  const handleLogout = () => {
+    logout().finally(() => clearSessionAndRedirectToLogin())
+  }
+
   const menuItems: MenuProps['items'] = [
     {
       key: 'profile',
@@ -167,6 +173,12 @@ export default function TheHeader({
       key: 'password',
       label: 'Đổi mật khẩu',
       onClick: openPasswordModal,
+    },
+    {
+      key: 'logout',
+      label: 'Đăng xuất',
+      danger: true,
+      onClick: handleLogout,
     },
   ]
 

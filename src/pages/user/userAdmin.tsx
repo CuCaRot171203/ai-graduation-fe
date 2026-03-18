@@ -7,7 +7,7 @@ const USER_DASHBOARD_AVATAR =
 export default function UserAdmin() {
   return (
     <div className="flex h-screen overflow-hidden bg-background-light font-display text-slate-900 dark:bg-background-dark dark:text-slate-100">
-      <SidebarStudent variant="dashboard" activeItem="exams" />
+      <SidebarStudent variant="dashboard" activeItem="overview" />
 
       <main className="flex flex-1 flex-col overflow-y-auto">
         <TheHeader

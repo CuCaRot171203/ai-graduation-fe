@@ -9,7 +9,7 @@ import type { LoginUser } from '../../apis/authApi'
 import type { Subject } from '../../apis/subjectsApi'
 
 const LECTURE_AVATAR =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuALND6k2_wy0lcBZ1j7RmE8Do8IuT--SRJy0g-QEcbRwoRxGEFeGYXr8MVBf99ndf82s3AlqodutH8JIxd8TSx2oeBeNhd5cDAB2D6aCcknWAHXZJGJTWR3UO0sHznK4YPny6riiqomREFPRtOkevZx6eCPg64U5knKp4EYqR-gYZ-IBR7DMpVvxiCcbTMIlwH2qyFVIwOcnsSN2Fdsse0tsXpWiN21AJPxcBwx7JmDwmMgaB3hknDCsier31MNE2OUTyzbrIaSNmNt'
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
 
 function getStoredUser(): LoginUser | null {
   try {
@@ -110,7 +110,12 @@ export default function LectureSubjects() {
       <main className="ml-64 flex min-h-screen flex-1 flex-col">
         <TheHeader
           variant="lecture"
-          searchPlaceholder="Tìm kiếm môn học..."
+          searchSlot={
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Môn đang dạy</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Danh sách môn học bạn đã đăng ký giảng dạy.</p>
+            </div>
+          }
           userName={getStoredUser()?.fullName ?? 'Giảng viên'}
           userSubtitle="Môn đang dạy"
           avatarUrl={LECTURE_AVATAR}

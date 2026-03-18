@@ -1,88 +1,165 @@
-import { Button, Table, Tag } from 'antd'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Button, Table, Tag, message } from 'antd'
 import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
+import type { LoginUser } from '../../apis/authApi'
+import {
+  getAiClasses,
+  getAiGenerationOptions,
+  getAiMe,
+  getQuestionBank,
+  getTeacherSubjectsFromAiBackend,
+  type AiClassItem,
+} from '../../apis/aiExamApi'
 
-const recentAssignments = [
-  {
-    key: '1',
-    name: 'Toán Cao Cấp - Chương 2',
-    classCode: 'D14CNPM01',
-    deadline: '20/10/2023',
-    done: '42/50',
-    percent: 85,
-  },
-  {
-    key: '2',
-    name: 'Lập trình Java Cơ bản',
-    classCode: 'D14CNPM03',
-    deadline: '22/10/2023',
-    done: '20/45',
-    percent: 45,
-  },
-  {
-    key: '3',
-    name: 'Cơ sở dữ liệu - Lab 1',
-    classCode: 'D14HTTT02',
-    deadline: '25/10/2023',
-    done: '2/38',
-    percent: 5,
-  },
-]
+function getStoredUser(): LoginUser | null {
+  try {
+    const raw = localStorage.getItem('user')
+    if (!raw) return null
+    return JSON.parse(raw) as LoginUser
+  } catch {
+    return null
+  }
+}
 
-const columns = [
-  {
-    title: 'Tên đề',
-    dataIndex: 'name',
-    key: 'name',
-  },
+const TEACHER_AVATAR =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
+
+type BloomAgg = Record<string, number>
+type TopicAgg = Record<string, number>
+
+const classColumns = [
   {
     title: 'Lớp học',
-    dataIndex: 'classCode',
-    key: 'classCode',
-  },
-  {
-    title: 'Hạn nộp',
-    dataIndex: 'deadline',
-    key: 'deadline',
-    render: (value: string) => (
-      <span className="text-slate-500 dark:text-slate-400">{value}</span>
-    ),
-  },
-  {
-    title: 'Đã làm',
-    dataIndex: 'percent',
-    key: 'percent',
-    align: 'center' as const,
-    render: (_: number, record: (typeof recentAssignments)[number]) => (
-      <div className="flex items-center justify-center gap-2">
-        <div className="flex-1 h-1.5 w-16 rounded-full bg-slate-100 overflow-hidden">
-          <div
-            className="h-full bg-green-500"
-            style={{ width: `${record.percent}%` }}
-          />
-        </div>
-        <span className="text-xs font-bold">{record.done}</span>
+    dataIndex: 'name',
+    key: 'name',
+    render: (_: string, r: AiClassItem) => (
+      <div className="flex flex-col">
+        <span className="font-semibold text-slate-900 dark:text-white">{r.name}</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">{r.code}</span>
       </div>
     ),
   },
   {
+    title: 'Môn',
+    key: 'subject',
+    render: (_: unknown, r: AiClassItem) => (
+      <span className="text-slate-600 dark:text-slate-300">{r.subject?.name ?? '-'}</span>
+    ),
+  },
+  {
+    title: 'Niên khoá',
+    dataIndex: 'schoolYear',
+    key: 'schoolYear',
+    render: (v: string) => <span className="text-slate-500 dark:text-slate-400">{v}</span>,
+  },
+  {
+    title: 'Học sinh',
+    dataIndex: 'studentCount',
+    key: 'studentCount',
+    align: 'right' as const,
+    render: (v: number) => <span className="font-semibold">{v ?? 0}</span>,
+  },
+  {
     title: 'Thao tác',
     key: 'action',
-    render: () => (
+    align: 'right' as const,
+    render: (_: unknown, r: AiClassItem) => (
       <Button
         size="small"
         className="border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:!bg-primary hover:!text-white"
+        onClick={() => window.location.assign(`/lecture/classes/${r.id}`)}
       >
-        Xem kết quả
+        Xem chi tiết
       </Button>
     ),
   },
 ]
 
-const LECTURE_AVATAR =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuALND6k2_wy0lcBZ1j7RmE8Do8IuT--SRJy0g-QEcbRwoRxGEFeGYXr8MVBf99ndf82s3AlqodutH8JIxd8TSx2oeBeNhd5cDAB2D6aCcknWAHXZJGJTWR3UO0sHznK4YPny6riiqomREFPRtOkevZx6eCPg64U5knKp4EYqR-gYZ-IBR7DMpVvxiCcbTMIlwH2qyFVIwOcnsSN2Fdsse0tsXpWiN21AJPxcBwx7JmDwmMgaB3hknDCsier31MNE2OUTyzbrIaSNmNt'
-
 export default function LectureDashboard() {
+  const navigate = useNavigate()
+  const teacher = getStoredUser()
+  const teacherId = teacher?.id ?? null
+
+  const [loading, setLoading] = useState(true)
+  const [meName, setMeName] = useState<string>(teacher?.fullName ?? 'Giảng viên')
+  const [meRoleSubtitle, setMeRoleSubtitle] = useState<string>('Giảng viên')
+  const [statsExamsCreated, setStatsExamsCreated] = useState<number>(0)
+  const [statsClasses, setStatsClasses] = useState<number>(0)
+  const [statsQuestionBank, setStatsQuestionBank] = useState<number>(0)
+  const [topClasses, setTopClasses] = useState<AiClassItem[]>([])
+  const [bloomAgg, setBloomAgg] = useState<BloomAgg>({})
+  const [topicAgg, setTopicAgg] = useState<TopicAgg>({})
+
+  const sortedBloom = useMemo(() => {
+    const entries = Object.entries(bloomAgg)
+    entries.sort((a, b) => b[1] - a[1])
+    return entries
+  }, [bloomAgg])
+
+  const sortedTopics = useMemo(() => {
+    const entries = Object.entries(topicAgg)
+    entries.sort((a, b) => b[1] - a[1])
+    return entries.slice(0, 6)
+  }, [topicAgg])
+
+  const fetchAll = useCallback(async () => {
+    if (!teacherId) return
+    setLoading(true)
+    try {
+      const [meRes, classesRes, teacherSubjectsRes, genOptsRes] = await Promise.all([
+        getAiMe(),
+        getAiClasses({ page: 1, limit: 5, teacherId }),
+        getTeacherSubjectsFromAiBackend(teacherId),
+        getAiGenerationOptions(),
+      ])
+
+      setMeName(meRes.data?.fullName ?? meName)
+      setMeRoleSubtitle(meRes.data?.role === 'teacher' ? 'Giảng viên' : meRes.data?.role ?? 'Giảng viên')
+      setStatsExamsCreated(meRes.data?.stats?.totalExamsCreated ?? 0)
+
+      setTopClasses(classesRes.data?.classes ?? [])
+      setStatsClasses(classesRes.data?.pagination?.totalCount ?? 0)
+
+      const subjectIds = (teacherSubjectsRes.data?.subjects ?? []).map((s) => s.id).filter(Boolean)
+      if (subjectIds.length) {
+        const totals = await Promise.all(subjectIds.map((id) => getQuestionBank({ page: 1, limit: 1, subjectId: id })))
+        const qTotal = totals.reduce((sum, r) => sum + (r.data?.pagination?.total ?? 0), 0)
+        setStatsQuestionBank(qTotal)
+      } else {
+        setStatsQuestionBank(0)
+      }
+
+      const bloom: BloomAgg = {}
+      const topics: TopicAgg = {}
+      const allow = new Set(subjectIds)
+      const allSubjects = genOptsRes.data?.subjects ?? []
+      allSubjects
+        .filter((s) => (allow.size ? allow.has(s.id) : true))
+        .forEach((s) => {
+          const byBloom = s.questionStats?.byBloomLevel ?? {}
+          Object.entries(byBloom).forEach(([k, v]) => {
+            bloom[k] = (bloom[k] ?? 0) + (v ?? 0)
+          })
+          const byTopic = s.questionStats?.byTopic ?? {}
+          Object.entries(byTopic).forEach(([k, v]) => {
+            topics[k] = (topics[k] ?? 0) + (v ?? 0)
+          })
+        })
+      setBloomAgg(bloom)
+      setTopicAgg(topics)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Lỗi tải dashboard')
+    } finally {
+      setLoading(false)
+    }
+  }, [teacherId, meName])
+
+  useEffect(() => {
+    fetchAll()
+  }, [fetchAll])
+
   return (
     <div className="flex min-h-screen overflow-hidden bg-background-light font-display text-slate-900 dark:bg-background-dark dark:text-slate-100">
       <SidebarLecture activeItem="dashboard" />
@@ -90,10 +167,15 @@ export default function LectureDashboard() {
       <main className="ml-64 flex min-h-screen flex-1 flex-col">
         <TheHeader
           variant="lecture"
-          searchPlaceholder="Tìm kiếm tài liệu, đề thi..."
-          userName="TS. Nguyễn Văn A"
-          userSubtitle="Giảng viên Công nghệ"
-          avatarUrl={LECTURE_AVATAR}
+          searchSlot={
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Tổng quan</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Bảng điều khiển giảng viên.</p>
+            </div>
+          }
+          userName={meName}
+          userSubtitle={meRoleSubtitle}
+          avatarUrl={TEACHER_AVATAR}
           avatarAlt="Avatar"
         />
 
@@ -103,7 +185,7 @@ export default function LectureDashboard() {
           <section className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                Chào mừng giảng viên quay lại 👋
+                Chào mừng {meName} quay lại
               </h2>
               <p className="mt-1 text-slate-500 dark:text-slate-400">
                 Hôm nay bạn muốn quản lý lớp học hay soạn đề mới?
@@ -114,21 +196,21 @@ export default function LectureDashboard() {
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Đề đã tạo
                 </p>
-                <p className="text-lg font-bold text-primary">24</p>
+                <p className="text-lg font-bold text-primary">{loading ? '-' : statsExamsCreated}</p>
               </div>
               <div className="my-2 w-px bg-slate-200 dark:bg-slate-800" />
               <div className="px-4 py-2 text-center">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Bài đã giao
+                  Lớp đang quản lý
                 </p>
-                <p className="text-lg font-bold text-primary">15</p>
+                <p className="text-lg font-bold text-primary">{loading ? '-' : statsClasses}</p>
               </div>
               <div className="my-2 w-px bg-slate-200 dark:bg-slate-800" />
               <div className="px-4 py-2 text-center">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Học sinh
+                  Câu hỏi (bank)
                 </p>
-                <p className="text-lg font-bold text-primary">450</p>
+                <p className="text-lg font-bold text-primary">{loading ? '-' : statsQuestionBank}</p>
               </div>
             </div>
           </section>
@@ -145,7 +227,7 @@ export default function LectureDashboard() {
                 </Tag>
               </div>
               <div className="mt-4">
-                <h3 className="text-2xl font-black">24</h3>
+                <h3 className="text-2xl font-black">{loading ? '-' : statsExamsCreated}</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Tổng đề thi đã soạn
                 </p>
@@ -162,9 +244,9 @@ export default function LectureDashboard() {
                 </Tag>
               </div>
               <div className="mt-4">
-                <h3 className="text-2xl font-black">15</h3>
+                <h3 className="text-2xl font-black">—</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Tổng bài đã giao
+                  Tổng bài đã giao (chưa có API)
                 </p>
               </div>
             </div>
@@ -179,7 +261,7 @@ export default function LectureDashboard() {
                 </Tag>
               </div>
               <div className="mt-4">
-                <h3 className="text-2xl font-black">8</h3>
+                <h3 className="text-2xl font-black">{loading ? '-' : statsClasses}</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Số lớp đang quản lý
                 </p>
@@ -196,9 +278,9 @@ export default function LectureDashboard() {
                 </Tag>
               </div>
               <div className="mt-4">
-                <h3 className="text-2xl font-black">1,280</h3>
+                <h3 className="text-2xl font-black">{loading ? '-' : statsQuestionBank}</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Tổng lượt học sinh làm bài
+                  Tổng câu hỏi trong ngân hàng
                 </p>
               </div>
             </div>
@@ -206,21 +288,30 @@ export default function LectureDashboard() {
 
           {/* Quick actions */}
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <button className="group flex flex-col items-center justify-center rounded-xl bg-primary p-6 text-white shadow-lg shadow-primary/20 transition-all hover:bg-blue-700">
+            <button
+              className="group flex flex-col items-center justify-center rounded-xl bg-primary p-6 text-white shadow-lg shadow-primary/20 transition-all hover:bg-blue-700"
+              onClick={() => navigate('/lecture/ai-support/generate-exam')}
+            >
               <span className="material-symbols-outlined mb-2 text-3xl transition-transform group-hover:scale-110">
                 add_circle
               </span>
               <span className="font-bold">Soạn đề mới</span>
             </button>
-            <button className="group flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white p-6 transition-all hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-900">
+            <button
+              className="group flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white p-6 transition-all hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-900"
+              onClick={() => navigate('/lecture/exams')}
+            >
               <span className="material-symbols-outlined mb-2 text-3xl text-slate-400 transition-colors group-hover:text-primary">
                 library_books
               </span>
               <span className="font-bold text-slate-700 group-hover:text-primary dark:text-slate-300">
-                Tạo đề từ bank đề
+                Danh sách đề thi
               </span>
             </button>
-            <button className="group flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white p-6 transition-all hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-900">
+            <button
+              className="group flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white p-6 transition-all hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-900"
+              onClick={() => navigate('/lecture/assignments')}
+            >
               <span className="material-symbols-outlined mb-2 text-3xl text-slate-400 transition-colors group-hover:text-primary">
                 forward_to_inbox
               </span>
@@ -228,137 +319,96 @@ export default function LectureDashboard() {
                 Giao bài cho lớp
               </span>
             </button>
-            <button className="group flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white p-6 transition-all hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-900">
+            <button
+              className="group flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white p-6 transition-all hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-900"
+              onClick={() => navigate('/lecture/question-bank')}
+            >
               <span className="material-symbols-outlined mb-2 text-3xl text-slate-400 transition-colors group-hover:text-primary">
                 analytics
               </span>
               <span className="font-bold text-slate-700 group-hover:text-primary dark:text-slate-300">
-                Xem thống kê kết quả
+                Ngân hàng câu hỏi
               </span>
             </button>
           </section>
 
           <section className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            {/* Recent assignments table */}
+            {/* Recent classes table */}
             <div className="space-y-4 lg:col-span-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold">Bài giao gần đây</h3>
-                <button className="text-sm font-semibold text-primary hover:underline">
+                <h3 className="text-xl font-bold">Lớp học gần đây</h3>
+                <button className="text-sm font-semibold text-primary hover:underline" onClick={() => navigate('/lecture/classes')}>
                   Xem tất cả
                 </button>
               </div>
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <Table
-                  columns={columns}
-                  dataSource={recentAssignments}
+                  columns={classColumns}
+                  dataSource={topClasses}
                   pagination={false}
                   size="small"
+                  rowKey="id"
                   className="[&_.ant-table-thead>tr>th]:bg-slate-50 [&_.ant-table-thead>tr>th]:text-slate-500 [&_.ant-table-tbody>tr:hover>td]:!bg-slate-50 dark:[&_.ant-table-thead>tr>th]:!bg-slate-800/50 dark:[&_.ant-table-tbody>tr:hover>td]:!bg-slate-800/30"
                 />
               </div>
             </div>
 
-            {/* Charts placeholders */}
+            {/* Charts */}
             <div className="space-y-4">
-              <h3 className="text-xl font-bold">Phân tích kết quả</h3>
+              <h3 className="text-xl font-bold">Phân tích câu hỏi</h3>
               <div className="space-y-6">
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <h4 className="mb-4 text-sm font-bold">Điểm trung bình lớp</h4>
-                  <div className="flex h-48 items-end justify-around gap-2 px-2">
-                    {[80, 65, 90, 45, 75].map((value, index) => (
-                      <div
-                        key={index}
-                        className="group relative w-full rounded-t-lg bg-primary/20"
-                        style={{ height: `${value}%` }}
-                      >
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
-                          {(value / 10).toFixed(1)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 flex justify-between px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    <span>L01</span>
-                    <span>L02</span>
-                    <span>L03</span>
-                    <span>L04</span>
-                    <span>L05</span>
-                  </div>
+                  <h4 className="mb-4 text-sm font-bold">Phân bố theo mức độ (Bloom)</h4>
+                  {sortedBloom.length === 0 ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {loading ? 'Đang tải...' : 'Chưa có dữ liệu thống kê.'}
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {sortedBloom.map(([k, v]) => {
+                        const total = sortedBloom.reduce((s, [, n]) => s + n, 0) || 1
+                        const pct = Math.round((v / total) * 100)
+                        return (
+                          <div key={k} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">{k}</span>
+                              <span className="text-slate-500 dark:text-slate-400">
+                                {v} ({pct}%)
+                              </span>
+                            </div>
+                            <progress
+                              className="h-2 w-full overflow-hidden rounded-full [&::-webkit-progress-bar]:bg-slate-100 [&::-webkit-progress-value]:bg-primary dark:[&::-webkit-progress-bar]:bg-slate-800"
+                              value={pct}
+                              max={100}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <h4 className="mb-4 text-sm font-bold">Tỷ lệ câu đúng/sai</h4>
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="relative h-28 w-28">
-                      <svg
-                        className="h-full w-full -rotate-90 transform"
-                        viewBox="0 0 36 36"
-                      >
-                        <path
-                          className="text-slate-100 dark:text-slate-800"
-                          d="M18 2.0845
-                             a 15.9155 15.9155 0 0 1 0 31.831
-                             a 15.9155 15.9155 0 0 1 0 -31.831"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="6"
-                          strokeDasharray="100 100"
-                        />
-                        <path
-                          className="text-emerald-500"
-                          d="M18 2.0845
-                             a 15.9155 15.9155 0 0 1 0 31.831
-                             a 15.9155 15.9155 0 0 1 0 -31.831"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="6"
-                          strokeDasharray="72 100"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          className="text-red-400"
-                          d="M18 2.0845
-                             a 15.9155 15.9155 0 0 1 0 31.831
-                             a 15.9155 15.9155 0 0 1 0 -31.831"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="6"
-                          strokeDasharray="28 100"
-                          strokeDashoffset="-72"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-lg font-black">72%</span>
-                        <span className="text-[8px] font-bold uppercase text-slate-400">
-                          Đúng
-                        </span>
+                  <h4 className="mb-4 text-sm font-bold">Top chủ đề (topic)</h4>
+                  {sortedTopics.length === 0 ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {loading ? 'Đang tải...' : 'Chưa có dữ liệu thống kê.'}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {sortedTopics.map(([k, v]) => (
+                        <div key={k} className="flex items-center justify-between gap-3">
+                          <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">{k}</span>
+                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{v}</span>
+                        </div>
+                      ))}
+                      <div className="pt-2">
+                        <Button size="small" className="w-full" onClick={() => navigate('/lecture/question-bank')}>
+                          Mở ngân hàng câu hỏi
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                          <span className="text-xs text-slate-500">Đúng</span>
-                        </div>
-                        <span className="text-xs font-bold">72%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="h-3 w-3 rounded-full bg-red-400" />
-                          <span className="text-xs text-slate-500">Sai</span>
-                        </div>
-                        <span className="text-xs font-bold">18%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="h-3 w-3 rounded-full bg-slate-200 dark:bg-slate-700" />
-                          <span className="text-xs text-slate-500">Chưa làm</span>
-                        </div>
-                        <span className="text-xs font-bold">10%</span>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

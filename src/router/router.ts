@@ -10,13 +10,31 @@ import UserAdmin from '../pages/user/userAdmin'
 import ExamListScreen from '../pages/user/examListScreen'
 import ExamDetail from '../pages/user/examDetail'
 import SubjectList from '../pages/user/subjectList'
+import UserHistory from '../pages/user/userHistory'
+import UserLeaderboard from '../pages/user/userLeaderboard'
+import UserProfile from '../pages/user/userProfile'
+import UserAiSupport from '../pages/user/userAiSupport'
+import UserPracticeOptions from '../pages/user/userPracticeOptions'
+import UserPracticeWithExam from '../pages/user/userPracticeWithExam'
+import UserPracticeWithAi from '../pages/user/userPracticeWithAi'
 import LectureDashboard from '../pages/lecture/lectureDashboard'
 import LectureSubjects from '../pages/lecture/lectureSubjects'
 import LectureExams from '../pages/lecture/lectureExams'
+import LectureExamDetailPage from '../pages/lecture/lectureExamDetail'
 import LectureExamAddQuestions from '../pages/lecture/lectureExamAddQuestions'
 import LectureQuestionBank from '../pages/lecture/lectureQuestionBank'
 import LectureCreateQuestion from '../pages/lecture/createQuestion.'
 import RegisterSubject from '../pages/lecture/registerSubject'
+import LectureClasses from '../pages/lecture/lectureClasses'
+import LectureClassDetail from '../pages/lecture/lectureClassDetail'
+import LectureClassResults from '../pages/lecture/lectureClassResults'
+import LectureAiSupport from '../pages/lecture/lectureAiSupport'
+import LectureAiAsk from '../pages/lecture/lectureAiAsk'
+import LectureAiGenerateExam from '../pages/lecture/lectureAiGenerateExam'
+import LectureProfile from '../pages/lecture/lectureProfile'
+import LectureAssignments from '../pages/lecture/lectureAssignments'
+import LectureAssignmentHomework from '../pages/lecture/lectureAssignmentHomework'
+import LectureAssignmentMockExam from '../pages/lecture/lectureAssignmentMockExam'
 import AdminDashboard from '../pages/admin/adminDashboard'
 import CreateSubject from '../pages/admin/createSubject'
 import SubjectDetail from '../pages/admin/subjectDetail'
@@ -81,9 +99,36 @@ export const router = createBrowserRouter([
         path: 'subject-list',
         element: createElement(SubjectList),
       },
+      {
+        path: 'history',
+        element: createElement(UserHistory),
+      },
+      {
+        path: 'leaderboard',
+        element: createElement(UserLeaderboard),
+      },
+      {
+        path: 'profile',
+        element: createElement(UserProfile),
+      },
+      {
+        path: 'ai-support',
+        element: createElement(UserAiSupport),
+      },
+      {
+        path: 'subjects/:subjectId/practice',
+        element: createElement(UserPracticeOptions),
+      },
+      {
+        path: 'subjects/:subjectId/practice/exams',
+        element: createElement(UserPracticeWithExam),
+      },
+      {
+        path: 'subjects/:subjectId/practice/ai',
+        element: createElement(UserPracticeWithAi),
+      },
     ],
   },
-  // --- /lecture ---
   {
     path: '/lecture',
     element: createElement(LayoutOutlet),
@@ -101,12 +146,44 @@ export const router = createBrowserRouter([
         element: createElement(LectureExamAddQuestions),
       },
       {
+        path: 'exams/:examId',
+        element: createElement(LectureExamDetailPage),
+      },
+      {
         path: 'exams',
         element: createElement(LectureExams),
       },
       {
+        path: 'classes',
+        element: createElement(LectureClasses),
+      },
+      {
+        path: 'classes/:classId',
+        element: createElement(LectureClassDetail),
+      },
+      {
+        path: 'classes/:classId/results',
+        element: createElement(LectureClassResults),
+      },
+      {
         path: 'question-bank',
         element: createElement(LectureQuestionBank),
+      },
+      {
+        path: 'assignments',
+        element: createElement(LectureAssignments),
+      },
+      {
+        path: 'assignments/homework',
+        element: createElement(LectureAssignmentHomework),
+      },
+      {
+        path: 'assignments/mock-exam',
+        element: createElement(LectureAssignmentMockExam),
+      },
+      {
+        path: 'profile',
+        element: createElement(LectureProfile),
       },
       {
         path: 'create-question',
@@ -115,6 +192,18 @@ export const router = createBrowserRouter([
       {
         path: 'register-subject',
         element: createElement(RegisterSubject),
+      },
+      {
+        path: 'ai-support',
+        element: createElement(LectureAiSupport),
+      },
+      {
+        path: 'ai-support/ask',
+        element: createElement(LectureAiAsk),
+      },
+      {
+        path: 'ai-support/generate-exam',
+        element: createElement(LectureAiGenerateExam),
       },
     ],
   },

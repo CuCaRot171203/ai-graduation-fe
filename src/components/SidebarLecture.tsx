@@ -3,7 +3,7 @@ import { logout } from '../apis/authApi'
 import { clearSessionAndRedirectToLogin } from '../utils/session'
 
 export type SidebarLectureProps = {
-  /** item ativo: 'dashboard' | 'subjects' | 'exams' | 'question-bank' | 'classes' | 'ai-support' | 'registerTeach' */
+  /** item ativo: 'dashboard' | 'subjects' | 'exams' | 'question-bank' | 'classes' | 'assignments' | 'ai-support' | 'registerTeach' | 'profile' */
   activeItem?: string
   /** default: nav chính; register-teach: nav Đăng ký giảng dạy + box Liên hệ Admin */
   variant?: 'default' | 'register-teach'
@@ -117,30 +117,34 @@ export default function SidebarLecture({
           <span className="material-symbols-outlined">quiz</span>
           <span className="text-sm font-medium">Ngân hàng câu hỏi</span>
         </Link>
-        <button type="button" className={item('classes', activeItem === 'classes')}>
+        <Link to="/lecture/classes" className={`w-full ${navLink(activeItem === 'classes')}`}>
           <span className="material-symbols-outlined">groups</span>
-          Quản lý lớp
-        </button>
-        <button type="button" className={item('ai-support', activeItem === 'ai-support')}>
+          <span className="text-sm font-medium">Quản lý lớp</span>
+        </Link>
+        <Link to="/lecture/assignments" className={`w-full ${navLink(activeItem === 'assignments')}`}>
+          <span className="material-symbols-outlined">assignment</span>
+          <span className="text-sm font-medium">Giao bài tập</span>
+        </Link>
+        <Link to="/lecture/ai-support" className={`w-full ${navLink(activeItem === 'ai-support')}`}>
           <span className="material-symbols-outlined">smart_toy</span>
-          AI hỗ trợ
-        </button>
-
-        <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
-          <button type="button" className={item('profile', activeItem === 'profile')}>
-            <span className="material-symbols-outlined">account_circle</span>
-            Hồ sơ giảng viên
-          </button>
-          <button
-            type="button"
-            onClick={() => logout().finally(() => clearSessionAndRedirectToLogin())}
-            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/10"
-          >
-            <span className="material-symbols-outlined">logout</span>
-            Đăng xuất
-          </button>
-        </div>
+          <span className="text-sm font-medium">Trợ lý AI</span>
+        </Link>
       </nav>
+
+      <div className="border-t border-slate-100 px-4 py-4 dark:border-slate-800">
+        <Link to="/lecture/profile" className={item('profile', activeItem === 'profile')}>
+          <span className="material-symbols-outlined">account_circle</span>
+          Hồ sơ giảng viên
+        </Link>
+        <button
+          type="button"
+          onClick={() => logout().finally(() => clearSessionAndRedirectToLogin())}
+          className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/10"
+        >
+          <span className="material-symbols-outlined">logout</span>
+          Đăng xuất
+        </button>
+      </div>
     </aside>
   )
 }

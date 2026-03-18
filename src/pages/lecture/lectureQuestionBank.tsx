@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Key as ReactKey } from 'react'
-import { message, Table, Tag } from 'antd'
+import { message, Select, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
@@ -8,7 +8,7 @@ import { getQuestions, type Question, type QuestionsPagination } from '../../api
 import type { LoginUser } from '../../apis/authApi'
 
 const LECTURE_AVATAR =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuALND6k2_wy0lcBZ1j7RmE8Do8IuT--SRJy0g-QEcbRwoRxGEFeGYXr8MVBf99ndf82s3AlqodutH8JIxd8TSx2oeBeNhd5cDAB2D6aCcknWAHXZJGJTWR3UO0sHznK4YPny6riiqomREFPRtOkevZx6eCPg64U5knKp4EYqR-gYZ-IBR7DMpVvxiCcbTMIlwH2qyFVIwOcnsSN2Fdsse0tsXpWiN21AJPxcBwx7JmDwmMgaB3hknDCsier31MNE2OUTyzbrIaSNmNt'
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
 
 function getStoredUser(): LoginUser | null {
   try {
@@ -59,6 +59,8 @@ export default function LectureQuestionBank() {
   })
   const [loading, setLoading] = useState(true)
   const [expandedRowKeys, setExpandedRowKeys] = useState<ReactKey[]>([])
+  const [filterBloom, setFilterBloom] = useState<string | undefined>(undefined)
+  const [filterTopic, setFilterTopic] = useState<string | undefined>(undefined)
 
   const fetchQuestions = useCallback(() => {
     setLoading(true)
@@ -79,7 +81,8 @@ export default function LectureQuestionBank() {
   }, [params.page, params.limit])
 
   useEffect(() => {
-    fetchQuestions()
+    const t = setTimeout(() => fetchQuestions(), 0)
+    return () => clearTimeout(t)
   }, [fetchQuestions])
 
   const renderBloomLevel = (bloomLevel: string) => {
@@ -87,6 +90,35 @@ export default function LectureQuestionBank() {
     const config = BLOOM_LEVEL[key] ?? { color: 'default', label: formatTopic(bloomLevel || '') }
     return <Tag color={config.color}>{config.label || '—'}</Tag>
   }
+
+  const bloomOptions = useMemo(() => {
+    const keys = new Set<string>()
+    questions.forEach((q) => {
+      const k = (q.bloomLevel || '').toLowerCase().replace(/\s+/g, '_')
+      if (k) keys.add(k)
+    })
+    const list = Array.from(keys).sort((a, b) => a.localeCompare(b, 'vi'))
+    return list.map((k) => ({ value: k, label: BLOOM_LEVEL[k]?.label ?? formatTopic(k) }))
+  }, [questions])
+
+  const topicOptions = useMemo(() => {
+    const keys = new Set<string>()
+    questions.forEach((q) => {
+      const t = (q.topic || '').trim()
+      if (t) keys.add(t)
+    })
+    const list = Array.from(keys).sort((a, b) => a.localeCompare(b, 'vi'))
+    return list.map((t) => ({ value: t, label: formatTopic(t) }))
+  }, [questions])
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      const bloomKey = (q.bloomLevel || '').toLowerCase().replace(/\s+/g, '_')
+      const okBloom = !filterBloom || bloomKey === filterBloom
+      const okTopic = !filterTopic || (q.topic || '') === filterTopic
+      return okBloom && okTopic
+    })
+  }, [questions, filterBloom, filterTopic])
 
   const columns: ColumnsType<QuestionRow> = [
     {
@@ -102,46 +134,12 @@ export default function LectureQuestionBank() {
       key: 'contentHtml',
       width: 240,
       ellipsis: true,
+      sorter: (a, b) => stripHtml(a.contentHtml).localeCompare(stripHtml(b.contentHtml), 'vi', { sensitivity: 'base' }),
+      sortDirections: ['ascend', 'descend'],
       render: (_, record) => (
         <span className="text-slate-800 dark:text-slate-200" title={stripHtml(record.contentHtml)}>
           {stripHtml(record.contentHtml)}
         </span>
-      ),
-    },
-    {
-      title: 'ĐÁP ÁN A',
-      key: 'optionA',
-      width: 120,
-      ellipsis: true,
-      render: (_, record) => (
-        <span className="text-slate-600 dark:text-slate-400">{record.options?.A ?? '—'}</span>
-      ),
-    },
-    {
-      title: 'ĐÁP ÁN B',
-      key: 'optionB',
-      width: 120,
-      ellipsis: true,
-      render: (_, record) => (
-        <span className="text-slate-600 dark:text-slate-400">{record.options?.B ?? '—'}</span>
-      ),
-    },
-    {
-      title: 'ĐÁP ÁN C',
-      key: 'optionC',
-      width: 120,
-      ellipsis: true,
-      render: (_, record) => (
-        <span className="text-slate-600 dark:text-slate-400">{record.options?.C ?? '—'}</span>
-      ),
-    },
-    {
-      title: 'ĐÁP ÁN D',
-      key: 'optionD',
-      width: 120,
-      ellipsis: true,
-      render: (_, record) => (
-        <span className="text-slate-600 dark:text-slate-400">{record.options?.D ?? '—'}</span>
       ),
     },
     {
@@ -155,16 +153,20 @@ export default function LectureQuestionBank() {
       ),
     },
     {
-      title: 'BLOOM LEVEL',
+      title: 'MỨC ĐỘ',
       key: 'bloomLevel',
       width: 120,
+      sorter: (a, b) => (a.bloomLevel || '').localeCompare(b.bloomLevel || '', 'vi', { sensitivity: 'base' }),
+      sortDirections: ['ascend', 'descend'],
       render: (_, record) => renderBloomLevel(record.bloomLevel),
     },
     {
-      title: 'TOPIC',
+      title: 'CHỦ ĐỀ',
       dataIndex: 'topic',
       key: 'topic',
       width: 120,
+      sorter: (a, b) => (a.topic || '').localeCompare(b.topic || '', 'vi', { sensitivity: 'base' }),
+      sortDirections: ['ascend', 'descend'],
       render: (topic: string) => (
         <span className="text-slate-600 dark:text-slate-400">{formatTopic(topic || '')}</span>
       ),
@@ -180,7 +182,12 @@ export default function LectureQuestionBank() {
       <main className="ml-64 flex min-h-screen flex-1 flex-col overflow-hidden">
         <TheHeader
           variant="lecture"
-          searchPlaceholder="Tìm kiếm câu hỏi..."
+          searchSlot={
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Ngân hàng câu hỏi</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Xem và lọc câu hỏi theo mức độ và chủ đề.</p>
+            </div>
+          }
           userName={getStoredUser()?.fullName ?? 'Giảng viên'}
           userSubtitle="Ngân hàng câu hỏi"
           avatarUrl={LECTURE_AVATAR}
@@ -191,9 +198,38 @@ export default function LectureQuestionBank() {
           <div className="mx-auto max-w-[1400px]">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
               <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Preview câu hỏi
+                Ngân hàng câu hỏi
               </h2>
               <div className="flex flex-wrap items-center gap-3">
+                <Select
+                  placeholder="Mức độ"
+                  value={filterBloom}
+                  onChange={(v) => setFilterBloom(v)}
+                  allowClear
+                  options={bloomOptions}
+                  className="w-44 [&_.ant-select-selector]:rounded-lg"
+                />
+                <Select
+                  placeholder="Chủ đề"
+                  value={filterTopic}
+                  onChange={(v) => setFilterTopic(v)}
+                  allowClear
+                  options={topicOptions}
+                  className="w-44 [&_.ant-select-selector]:rounded-lg"
+                  showSearch
+                  optionFilterProp="label"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterBloom(undefined)
+                    setFilterTopic(undefined)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-0 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  <span className="material-symbols-outlined text-lg">filter_alt_off</span>
+                  Xóa bộ lọc
+                </button>
                 <span className="text-sm text-slate-600 dark:text-slate-400">
                   {total} câu đã nhận diện
                 </span>
@@ -207,7 +243,7 @@ export default function LectureQuestionBank() {
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <Table<QuestionRow>
                 columns={columns}
-                dataSource={questions}
+                dataSource={filteredQuestions}
                 rowKey="key"
                 loading={loading}
                 expandable={{
@@ -254,8 +290,8 @@ export default function LectureQuestionBank() {
                       prev.includes(record.key) ? prev.filter((k) => k !== record.key) : [...prev, record.key]
                     )
                   },
-                  style: { cursor: 'pointer' },
                 })}
+                rowClassName={() => 'cursor-pointer'}
                 pagination={{
                   current: pagination.page,
                   pageSize: pagination.limit,
