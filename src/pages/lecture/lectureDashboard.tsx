@@ -5,6 +5,7 @@ import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
 import type { LoginUser } from '../../apis/authApi'
 import {
+  getAiAssignments,
   getAiClasses,
   getAiGenerationOptions,
   getAiMe,
@@ -86,6 +87,7 @@ export default function LectureDashboard() {
   const [meName, setMeName] = useState<string>(teacher?.fullName ?? 'Giảng viên')
   const [meRoleSubtitle, setMeRoleSubtitle] = useState<string>('Giảng viên')
   const [statsExamsCreated, setStatsExamsCreated] = useState<number>(0)
+  const [statsAssignments, setStatsAssignments] = useState<number>(0)
   const [statsClasses, setStatsClasses] = useState<number>(0)
   const [statsQuestionBank, setStatsQuestionBank] = useState<number>(0)
   const [topClasses, setTopClasses] = useState<AiClassItem[]>([])
@@ -108,9 +110,10 @@ export default function LectureDashboard() {
     if (!teacherId) return
     setLoading(true)
     try {
-      const [meRes, classesRes, teacherSubjectsRes, genOptsRes] = await Promise.all([
+      const [meRes, classesRes, assignmentsRes, teacherSubjectsRes, genOptsRes] = await Promise.all([
         getAiMe(),
         getAiClasses({ page: 1, limit: 5, teacherId }),
+        getAiAssignments({ page: 1, limit: 1 }),
         getTeacherSubjectsFromAiBackend(teacherId),
         getAiGenerationOptions(),
       ])
@@ -121,6 +124,7 @@ export default function LectureDashboard() {
 
       setTopClasses(classesRes.data?.classes ?? [])
       setStatsClasses(classesRes.data?.pagination?.totalCount ?? 0)
+      setStatsAssignments(assignmentsRes.data?.pagination?.total ?? 0)
 
       const subjectIds = (teacherSubjectsRes.data?.subjects ?? []).map((s) => s.id).filter(Boolean)
       if (subjectIds.length) {
@@ -244,9 +248,9 @@ export default function LectureDashboard() {
                 </Tag>
               </div>
               <div className="mt-4">
-                <h3 className="text-2xl font-black">—</h3>
+                <h3 className="text-2xl font-black">{loading ? '-' : statsAssignments}</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Tổng bài đã giao (chưa có API)
+                  Tổng bài đã giao
                 </p>
               </div>
             </div>

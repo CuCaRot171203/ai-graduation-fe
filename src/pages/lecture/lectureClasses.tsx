@@ -8,6 +8,7 @@ import type { LoginUser } from '../../apis/authApi'
 import { deleteAiClass, getAiClasses, updateAiClass, type AiClassItem } from '../../apis/aiExamApi'
 import { getTeacherSubjectsFromAiBackend } from '../../apis/aiExamApi'
 import type { Subject } from '../../apis/subjectsApi'
+import { approveEnrollment, getPendingEnrollments, type EnrollmentItem } from '../../apis/aiExamApi'
 
 const TEACHER_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
@@ -48,6 +49,11 @@ export default function LectureClasses() {
   const [editYear, setEditYear] = useState('')
   const [editSubjectId, setEditSubjectId] = useState<number | undefined>(undefined)
   const [editIsActive, setEditIsActive] = useState(true)
+  const [pendingRows, setPendingRows] = useState<EnrollmentItem[]>([])
+  const [pendingLoading, setPendingLoading] = useState(false)
+  const [pendingPage, setPendingPage] = useState(1)
+  const [pendingLimit, setPendingLimit] = useState(10)
+  const [pendingTotal, setPendingTotal] = useState(0)
 
   const subjectOptions = useMemo(
     () => subjects.map((s) => ({ value: s.id, label: `${s.code} - ${s.name}` })),
@@ -90,6 +96,25 @@ export default function LectureClasses() {
   useEffect(() => {
     fetchClasses()
   }, [fetchClasses])
+
+  const fetchPending = useCallback(() => {
+    if (!teacherId) return
+    setPendingLoading(true)
+    getPendingEnrollments({
+      page: pendingPage,
+      limit: pendingLimit,
+    })
+      .then((res) => {
+        setPendingRows(res.data?.enrollments ?? [])
+        setPendingTotal(res.data?.pagination?.totalCount ?? 0)
+      })
+      .catch((err) => message.error(err?.message ?? 'Lỗi tải danh sách chờ duyệt'))
+      .finally(() => setPendingLoading(false))
+  }, [teacherId, pendingPage, pendingLimit])
+
+  useEffect(() => {
+    fetchPending()
+  }, [fetchPending])
 
   const openEdit = (record: AiClassItem) => {
     setEditing(record)
@@ -231,7 +256,69 @@ export default function LectureClasses() {
             title="Xem kết quả lớp"
             onClick={() => navigate(`/lecture/classes/${r.id}/results`)}
           />
+          <Button
+            type="text"
+            size="small"
+            className="!text-slate-500 hover:!text-primary"
+            icon={<span className="material-symbols-outlined text-lg">assignment</span>}
+            title="Giao bài"
+            onClick={() => navigate(`/lecture/assignments?classId=${r.id}`)}
+          />
         </div>
+      ),
+    },
+  ]
+
+  const pendingColumns: ColumnsType<EnrollmentItem> = [
+    {
+      title: 'HỌC SINH',
+      key: 'student',
+      render: (_, r) => (
+        <div>
+          <div className="font-medium text-slate-900 dark:text-white">{r.student?.fullName ?? `#${r.student?.id}`}</div>
+          <div className="text-xs text-slate-500">{r.student?.email ?? ''}</div>
+        </div>
+      ),
+    },
+    {
+      title: 'LỚP',
+      key: 'class',
+      width: 220,
+      render: (_, r) => <span>{r.class ? `${r.class.code} - ${r.class.name}` : '—'}</span>,
+    },
+    {
+      title: 'THỜI GIAN ĐK',
+      key: 'enrolledAt',
+      width: 180,
+      render: (_, r) => <span>{r.enrolledAt ? new Date(r.enrolledAt).toLocaleString('vi-VN') : '—'}</span>,
+    },
+    {
+      title: 'TRẠNG THÁI',
+      key: 'status',
+      width: 120,
+      render: (_, r) => <Tag color="gold">{r.status}</Tag>,
+    },
+    {
+      title: 'HÀNH ĐỘNG',
+      key: 'actions',
+      width: 120,
+      render: (_, r) => (
+        <Button
+          type="primary"
+          size="small"
+          onClick={async () => {
+            try {
+              await approveEnrollment(r.id)
+              message.success(`Đã duyệt ${r.student?.fullName ?? 'học sinh'}.`)
+              fetchPending()
+              fetchClasses()
+            } catch (err) {
+              message.error(err instanceof Error ? err.message : 'Duyệt thất bại')
+            }
+          }}
+        >
+          Duyệt
+        </Button>
       ),
     },
   ]
@@ -352,6 +439,36 @@ export default function LectureClasses() {
                 }}
                 size="middle"
                 locale={{ emptyText: 'Chưa có lớp học nào.' }}
+                className="[&_.ant-table-thead>tr>th]:border-b [&_.ant-table-thead>tr>th]:border-slate-100 [&_.ant-table-thead>tr>th]:bg-slate-50 [&_.ant-table-thead>tr>th]:px-4 [&_.ant-table-thead>tr>th]:py-3 [&_.ant-table-thead>tr>th]:text-xs [&_.ant-table-thead>tr>th]:font-semibold [&_.ant-table-thead>tr>th]:uppercase [&_.ant-table-thead>tr>th]:tracking-wider [&_.ant-table-thead>tr>th]:text-slate-500 [&_.ant-table-tbody>tr>td]:px-4 [&_.ant-table-tbody>tr>td]:py-3 [&_.ant-table-tbody>tr:hover>td]:!bg-slate-50 dark:[&_.ant-table-thead>tr>th]:border-slate-700 dark:[&_.ant-table-thead>tr>th]:!bg-slate-800/80 dark:[&_.ant-table-thead>tr>th]:!text-slate-300 dark:[&_.ant-table-tbody>tr:hover>td]:!bg-slate-800/50"
+              />
+            </div>
+
+            <div className="mt-8">
+              <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Học sinh chờ duyệt vào lớp</h3>
+              <p className="mt-1 text-slate-500 dark:text-slate-400">Danh sách yêu cầu đăng ký lớp đang ở trạng thái pending.</p>
+            </div>
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <Table<EnrollmentItem>
+                columns={pendingColumns}
+                dataSource={pendingRows.map((e) => ({ ...e, key: e.id }))}
+                rowKey="id"
+                loading={pendingLoading}
+                pagination={{
+                  current: pendingPage,
+                  pageSize: pendingLimit,
+                  total: pendingTotal,
+                  showSizeChanger: true,
+                  pageSizeOptions: [10, 20, 50],
+                  showTotal: (t) => `Tổng ${t} yêu cầu`,
+                  onChange: (p, ps) => {
+                    setPendingPage(p)
+                    if (ps !== pendingLimit) {
+                      setPendingLimit(ps)
+                      setPendingPage(1)
+                    }
+                  },
+                }}
+                locale={{ emptyText: 'Không có yêu cầu pending.' }}
                 className="[&_.ant-table-thead>tr>th]:border-b [&_.ant-table-thead>tr>th]:border-slate-100 [&_.ant-table-thead>tr>th]:bg-slate-50 [&_.ant-table-thead>tr>th]:px-4 [&_.ant-table-thead>tr>th]:py-3 [&_.ant-table-thead>tr>th]:text-xs [&_.ant-table-thead>tr>th]:font-semibold [&_.ant-table-thead>tr>th]:uppercase [&_.ant-table-thead>tr>th]:tracking-wider [&_.ant-table-thead>tr>th]:text-slate-500 [&_.ant-table-tbody>tr>td]:px-4 [&_.ant-table-tbody>tr>td]:py-3 [&_.ant-table-tbody>tr:hover>td]:!bg-slate-50 dark:[&_.ant-table-thead>tr>th]:border-slate-700 dark:[&_.ant-table-thead>tr>th]:!bg-slate-800/80 dark:[&_.ant-table-thead>tr>th]:!text-slate-300 dark:[&_.ant-table-tbody>tr:hover>td]:!bg-slate-800/50"
               />
             </div>

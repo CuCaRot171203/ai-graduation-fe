@@ -39,6 +39,42 @@ export type LoginBody = {
   password: string
 }
 
+export type RegisterBody = {
+  email: string
+  password: string
+  fullName: string
+  role: UserRole
+  className?: string
+}
+
+export type RegisterResponse = {
+  status: string
+  message?: string
+  data?: unknown
+}
+
+export type ForgotPasswordBody = {
+  email: string
+}
+
+export type ForgotPasswordResponse = {
+  status: string
+  message?: string
+  data?: unknown
+}
+
+export type ResetPasswordBody = {
+  token: string
+  newPassword: string
+  confirmPassword: string
+}
+
+export type ResetPasswordResponse = {
+  status: string
+  message?: string
+  data?: unknown
+}
+
 export function getDashboardPathByRole(role: string): string {
   const r = role?.toLowerCase()
   switch (r) {
@@ -70,6 +106,63 @@ export async function login(body: LoginBody): Promise<LoginResponse> {
     throw new Error(json?.message ?? 'Đăng nhập thất bại')
   }
   return json as LoginResponse
+}
+
+export async function register(body: RegisterBody): Promise<RegisterResponse> {
+  const base = getApiBaseUrl()
+  if (!base) {
+    throw new Error('VITE_API_BASE_URL is not set')
+  }
+  const res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    throw new Error(json?.message ?? 'Đăng ký thất bại')
+  }
+  return json as RegisterResponse
+}
+
+export async function forgotPassword(body: ForgotPasswordBody): Promise<ForgotPasswordResponse> {
+  const base = getApiBaseUrl()
+  if (!base) {
+    throw new Error('VITE_API_BASE_URL is not set')
+  }
+  const res = await fetch(`${base}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    throw new Error(json?.message ?? 'Gửi yêu cầu quên mật khẩu thất bại')
+  }
+  return json as ForgotPasswordResponse
+}
+
+export async function resetPassword(body: ResetPasswordBody): Promise<ResetPasswordResponse> {
+  const base = getApiBaseUrl()
+  if (!base) {
+    throw new Error('VITE_API_BASE_URL is not set')
+  }
+  const res = await fetch(`${base}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    throw new Error(json?.message ?? 'Đặt lại mật khẩu thất bại')
+  }
+  return json as ResetPasswordResponse
 }
 
 // --- POST /api/auth/logout ---

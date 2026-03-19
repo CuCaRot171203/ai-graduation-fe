@@ -1,14 +1,34 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Form, Input } from 'antd'
+import { Button, Form, Input, notification } from 'antd'
+import { forgotPassword } from '../../apis/authApi'
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
 
-  const onFinish = (values: { email: string }) => {
-    console.log('Forgot password:', values.email)
-    setSent(true)
+  const onFinish = async (values: { email: string }) => {
+    try {
+      setSubmitting(true)
+      const res = await forgotPassword({ email: values.email })
+      setSent(true)
+      notification.success({
+        message: 'Thành công',
+        description: res.message ?? 'Đã gửi yêu cầu đặt lại mật khẩu',
+        placement: 'topRight',
+        duration: 2,
+      })
+    } catch (err) {
+      notification.error({
+        message: 'Thất bại',
+        description: err instanceof Error ? err.message : 'Không thể gửi yêu cầu quên mật khẩu',
+        placement: 'topRight',
+        duration: 2,
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -72,6 +92,7 @@ export default function ForgotPasswordPage() {
             <Button
               type="primary"
               htmlType="submit"
+              loading={submitting}
               size="large"
               block
               className="flex h-12 items-center justify-center gap-2 rounded-lg font-semibold hover:!bg-primary/90"

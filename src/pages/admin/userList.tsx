@@ -609,7 +609,7 @@ export default function UserList() {
               </div>
               <div className="w-28">
                 <label className="mb-1 block text-xs font-semibold text-slate-500">
-                  Role
+                  Vai trò
                 </label>
                 <Select
                   value={params.role ?? ''}

@@ -48,10 +48,6 @@ export default function SidebarStudent({
           <span className="material-symbols-outlined">history</span>
           <span className="text-sm font-medium">Lịch sử làm bài</span>
         </Link>
-        <Link to="/user/leaderboard" className={`w-full ${navLink(activeItem === 'rank')}`}>
-          <span className="material-symbols-outlined">leaderboard</span>
-          <span className="text-sm font-medium">Bảng xếp hạng</span>
-        </Link>
         <Link to="/user/ai-support" className={`w-full ${navLink(activeItem === 'ai-support')}`}>
           <span className="material-symbols-outlined">smart_toy</span>
           <span className="text-sm font-medium">Trợ lý AI</span>

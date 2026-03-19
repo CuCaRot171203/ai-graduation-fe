@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Modal, Tag, message } from 'antd'
 import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
@@ -21,6 +21,7 @@ function getStoredUser(): LoginUser | null {
 
 export default function LectureClassDetail() {
   const { classId } = useParams()
+  const navigate = useNavigate()
   const idNum = Number(classId)
 
   const [loading, setLoading] = useState(true)
@@ -116,8 +117,13 @@ export default function LectureClassDetail() {
                 >
                   Xem kết quả lớp
                 </Button>
-                <Button disabled className="rounded-lg" icon={<span className="material-symbols-outlined">assignment</span>}>
-                  Giao bài tập
+                <Button
+                  className="rounded-lg"
+                  icon={<span className="material-symbols-outlined">assignment</span>}
+                  onClick={() => navigate(`/lecture/assignments?classId=${idNum}`)}
+                  disabled={!cls}
+                >
+                  Giao bài
                 </Button>
                 <Link to="/lecture/classes">
                   <Button className="rounded-lg">Quay lại</Button>

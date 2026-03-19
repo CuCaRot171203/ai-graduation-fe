@@ -106,7 +106,7 @@ export default function LectureAiSupport() {
             <CardLink
               to="/lecture/ai-support/ask"
               icon="chat"
-              title="Hỏi AI"
+              title="Tạo câu hỏi bằng AI"
               desc="Trao đổi nhanh: gợi ý câu hỏi, giải thích, outline nội dung, v.v."
               accentClass="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300"
             />

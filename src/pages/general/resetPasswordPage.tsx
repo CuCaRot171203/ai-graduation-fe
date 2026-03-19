@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Button, Form, Input } from 'antd'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Button, Form, Input, notification } from 'antd'
+import { resetPassword } from '../../apis/authApi'
 
 function getPasswordStrength(password: string): { percent: number; label: string } {
   if (!password) return { percent: 0, label: '' }
@@ -19,11 +20,49 @@ function getPasswordStrength(password: string): { percent: number; label: string
 export default function ResetPasswordPage() {
   const [form] = Form.useForm()
   const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   const strength = useMemo(() => getPasswordStrength(password), [password])
 
-  const onFinish = (values: { newPassword: string }) => {
-    console.log('Reset password:', values.newPassword)
+  const onFinish = async (values: { newPassword: string; confirmPassword: string; token?: string }) => {
+    const tokenFromUrl = searchParams.get('token')?.trim()
+    const token = tokenFromUrl || String(values.token ?? '').trim()
+    if (!token) {
+      notification.error({
+        message: 'Thiếu token',
+        description: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
+        placement: 'topRight',
+        duration: 2,
+      })
+      return
+    }
+
+    try {
+      setSubmitting(true)
+      const res = await resetPassword({
+        token,
+        newPassword: values.newPassword,
+        confirmPassword: values.confirmPassword,
+      })
+      notification.success({
+        message: 'Thành công',
+        description: res.message ?? 'Đặt lại mật khẩu thành công',
+        placement: 'topRight',
+        duration: 2,
+      })
+      navigate('/login')
+    } catch (err) {
+      notification.error({
+        message: 'Thất bại',
+        description: err instanceof Error ? err.message : 'Đặt lại mật khẩu thất bại',
+        placement: 'topRight',
+        duration: 2,
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -51,6 +90,20 @@ export default function ResetPasswordPage() {
           onFinish={onFinish}
           className="w-full"
         >
+          {!searchParams.get('token') ? (
+            <Form.Item
+              name="token"
+              label="Token reset"
+              rules={[{ required: true, message: 'Vui lòng nhập token reset' }]}
+            >
+              <Input
+                placeholder="abc123def456..."
+                size="large"
+                className="h-12 rounded-lg bg-white dark:bg-slate-700 [&.ant-input]:border-slate-200 dark:[&.ant-input]:border-slate-600"
+              />
+            </Form.Item>
+          ) : null}
+
           <Form.Item
             name="newPassword"
             label="Mật khẩu mới"
@@ -110,6 +163,7 @@ export default function ResetPasswordPage() {
             <Button
               type="primary"
               htmlType="submit"
+              loading={submitting}
               size="large"
               block
               className="h-12 rounded-lg font-semibold shadow-lg shadow-primary/20 transition-all active:scale-[0.98] focus:ring-4 focus:ring-primary/30 hover:!bg-primary/90"

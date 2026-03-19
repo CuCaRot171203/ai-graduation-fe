@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom'
-import { Button, Checkbox, Form, Input, Select } from 'antd'
+import { Link, useNavigate } from 'react-router-dom'
+import { Button, Checkbox, Form, Input, Select, notification } from 'antd'
+import { register, type UserRole } from '../../apis/authApi'
 
 const ROLE_OPTIONS = [
   { value: 'student', label: 'Học sinh' },
@@ -9,9 +10,33 @@ const ROLE_OPTIONS = [
 
 export default function RegisterPage() {
   const [form] = Form.useForm()
+  const navigate = useNavigate()
 
-  const onFinish = (values: Record<string, unknown>) => {
-    console.log('Register:', values)
+  const onFinish = async (values: Record<string, unknown>) => {
+    try {
+      const payload = {
+        email: String(values.email ?? '').trim(),
+        password: String(values.password ?? ''),
+        fullName: String(values.fullname ?? '').trim(),
+        role: String(values.role ?? 'student') as UserRole,
+        className: String(values.className ?? '').trim(),
+      }
+      const res = await register(payload)
+      notification.success({
+        message: 'Thành công',
+        description: res.message ?? 'Đăng ký tài khoản thành công',
+        placement: 'topRight',
+        duration: 2,
+      })
+      navigate('/login')
+    } catch (err) {
+      notification.error({
+        message: 'Thất bại',
+        description: err instanceof Error ? err.message : 'Đăng ký thất bại',
+        placement: 'topRight',
+        duration: 2,
+      })
+    }
   }
 
   return (
@@ -128,6 +153,7 @@ export default function RegisterPage() {
             name="role"
             label="Vai trò người dùng"
             rules={[{ required: true, message: 'Vui lòng chọn vai trò' }]}
+            initialValue="student"
           >
             <Select
               placeholder="Chọn vai trò"
@@ -140,6 +166,35 @@ export default function RegisterPage() {
               options={ROLE_OPTIONS}
               className="[&_.ant-select-selector]:rounded-lg [&_.ant-select-selector]:bg-slate-50 [&_.ant-select-selector]:border-slate-200 dark:[&_.ant-select-selector]:bg-slate-800 dark:[&_.ant-select-selector]:border-slate-700"
             />
+          </Form.Item>
+
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, cur) => prev.role !== cur.role}
+          >
+            {({ getFieldValue }) =>
+              getFieldValue('role') === 'student' ? (
+                <Form.Item
+                  name="className"
+                  label="Lớp học"
+                  rules={[{ required: true, message: 'Vui lòng nhập lớp học' }]}
+                >
+                  <Input
+                    placeholder="12A1"
+                    size="large"
+                    className="rounded-lg bg-slate-50 dark:bg-slate-800 [&.ant-input]:border-slate-200 dark:[&.ant-input]:border-slate-700"
+                  />
+                </Form.Item>
+              ) : (
+                <Form.Item name="className" label="Lớp học (không bắt buộc)">
+                  <Input
+                    placeholder="12A1"
+                    size="large"
+                    className="rounded-lg bg-slate-50 dark:bg-slate-800 [&.ant-input]:border-slate-200 dark:[&.ant-input]:border-slate-700"
+                  />
+                </Form.Item>
+              )
+            }
           </Form.Item>
 
           <Form.Item

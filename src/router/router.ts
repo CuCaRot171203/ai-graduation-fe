@@ -35,6 +35,8 @@ import LectureProfile from '../pages/lecture/lectureProfile'
 import LectureAssignments from '../pages/lecture/lectureAssignments'
 import LectureAssignmentHomework from '../pages/lecture/lectureAssignmentHomework'
 import LectureAssignmentMockExam from '../pages/lecture/lectureAssignmentMockExam'
+import LectureAssignmentDetail from '../pages/lecture/lectureAssignmentDetail'
+import LectureAssignmentProgress from '../pages/lecture/lectureAssignmentProgress'
 import AdminDashboard from '../pages/admin/adminDashboard'
 import CreateSubject from '../pages/admin/createSubject'
 import SubjectDetail from '../pages/admin/subjectDetail'
@@ -48,6 +50,8 @@ import ClassDetail from '../pages/admin/classDetail'
 import ClassList from '../pages/admin/classList'
 import UserList from '../pages/admin/userList'
 import ExamDashboard from '../pages/admin/examDashboard'
+import AdminQuestionBank from '../pages/admin/adminQuestionBank'
+import AdminTopicManagement from '../pages/admin/adminTopicManagement'
 
 function LayoutOutlet() {
   return createElement(Outlet)
@@ -182,6 +186,14 @@ export const router = createBrowserRouter([
         element: createElement(LectureAssignmentMockExam),
       },
       {
+        path: 'assignments/:assignmentId',
+        element: createElement(LectureAssignmentDetail),
+      },
+      {
+        path: 'assignments/:assignmentId/progress',
+        element: createElement(LectureAssignmentProgress),
+      },
+      {
         path: 'profile',
         element: createElement(LectureProfile),
       },
@@ -223,6 +235,14 @@ export const router = createBrowserRouter([
       {
         path: 'exam-dashboard',
         element: createElement(ExamDashboard),
+      },
+      {
+        path: 'question-bank',
+        element: createElement(AdminQuestionBank),
+      },
+      {
+        path: 'topics',
+        element: createElement(AdminTopicManagement),
       },
       {
         path: 'all-subjects',

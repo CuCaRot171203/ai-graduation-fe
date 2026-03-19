@@ -1,351 +1,434 @@
-import { useMemo, useState } from 'react'
-import { Button, Progress } from 'antd'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Button, Modal, Progress, Spin, message } from 'antd'
 import katex from 'katex'
+import 'katex/dist/katex.min.css'
+import {
+  getAiAssignmentQuestions,
+  startAiAssignment,
+  submitAiAssignment,
+  type AssignmentAttemptQuestion,
+} from '../../apis/aiExamApi'
 
-type Choice = {
-  id: string
-  text: string
+function fmtClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds))
+  const mm = String(Math.floor(s / 60)).padStart(2, '0')
+  const ss = String(s % 60).padStart(2, '0')
+  return `${mm}:${ss}`
 }
 
-type Question = {
-  id: number
-  label: string
-  content: string
-  hasFormula?: boolean
-  choices: Choice[]
-  correctId: string
+function normalizeAnswer(v: unknown): string | null {
+  if (v == null) return null
+  const s = String(v).trim().toUpperCase()
+  if (!s) return null
+  return s.slice(0, 1)
 }
 
-function renderMath(latex: string) {
-  return {
-    __html: katex.renderToString(latex, {
-      throwOnError: false,
-    }),
+function renderKatex(latex: string, displayMode = false): string {
+  try {
+    return katex.renderToString(latex, { throwOnError: false, displayMode })
+  } catch {
+    return latex
   }
 }
 
-const baseQuestions: Question[] = [
-  {
-    id: 1,
-    label: 'Câu 1',
-    content:
-      'Một photon có bước sóng \\(\\\\lambda = 4{,}0 \\\\times 10^{-7}\\\\,m\\). Năng lượng của photon này gần giá trị nào nhất? (Lấy \\(h = 6{,}625 \\\\times 10^{-34}\\\\,J.s,\\\\ c = 3{,}0 \\\\times 10^8\\\\,m/s\\)).',
-    hasFormula: true,
-    choices: [
-      { id: 'A', text: '3,1 eV' },
-      { id: 'B', text: '4,8 eV' },
-      { id: 'C', text: '5,0 eV' },
-      { id: 'D', text: '6,2 eV' },
-    ],
-    correctId: 'C',
-  },
-  {
-    id: 2,
-    label: 'Câu 2',
-    content:
-      'Theo thuyết lượng tử ánh sáng, năng lượng của một photon được tính theo công thức \\(E = h f\\). Phát biểu nào sau đây là đúng?',
-    hasFormula: true,
-    choices: [
-      { id: 'A', text: 'Năng lượng photon tỉ lệ nghịch với tần số.' },
-      { id: 'B', text: 'Năng lượng photon không phụ thuộc vào tần số.' },
-      { id: 'C', text: 'Năng lượng photon tỉ lệ thuận với tần số.' },
-      { id: 'D', text: 'Năng lượng photon chỉ phụ thuộc vào bước sóng.' },
-    ],
-    correctId: 'C',
-  },
-]
+function decorateMathInHtml(input: string): string {
+  let html = String(input ?? '')
+  html = html.replace(/\\\[((?:.|\n)+?)\\\]/g, (_, expr: string) => renderKatex(expr, true))
+  html = html.replace(/\$\$((?:.|\n)+?)\$\$/g, (_, expr: string) => renderKatex(expr, true))
+  html = html.replace(/\\\(((?:.|\n)+?)\\\)/g, (_, expr: string) => renderKatex(expr, false))
+  html = html.replace(/\$([^$\n]+)\$/g, (_, expr: string) => renderKatex(expr, false))
+  return html
+}
 
-const questions: Question[] = [
-  ...baseQuestions,
-  ...Array.from({ length: 48 }, (_, index) => {
-    const id = index + 3
-    return {
-      id,
-      label: `Câu ${id}`,
-      content:
-        'Câu hỏi trắc nghiệm về hiện tượng quang điện, quang phổ vạch hay mẫu nguyên tử Bohr (nội dung mô phỏng).',
-      choices: [
-        { id: 'A', text: 'Phương án A' },
-        { id: 'B', text: 'Phương án B' },
-        { id: 'C', text: 'Phương án C' },
-        { id: 'D', text: 'Phương án D' },
-      ],
-      correctId: 'A',
-    } satisfies Question
-  }),
-]
+function optionAsHtml(text: unknown): string {
+  const raw = String(text ?? '')
+  const hasLatex = /\\[a-zA-Z]+|\^|_|\{|\}/.test(raw)
+  if (hasLatex) {
+    return renderKatex(raw, false)
+  }
+  return raw
+}
 
 export default function ExamDetail() {
-  const [answers, setAnswers] = useState<Record<number, string | null>>({})
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const assignmentId = Number(id)
 
-  const total = questions.length
-  const answered = useMemo(
-    () => Object.values(answers).filter((value) => value != null).length,
-    [answers],
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [attemptId, setAttemptId] = useState<number | null>(null)
+  const [durationMinutes, setDurationMinutes] = useState(0)
+  const [startedAt, setStartedAt] = useState<string | null>(null)
+  const [questions, setQuestions] = useState<AssignmentAttemptQuestion[]>([])
+  const [answers, setAnswers] = useState<Record<number, string | null>>({})
+  const [activeOrder, setActiveOrder] = useState(1)
+  const [remainingSeconds, setRemainingSeconds] = useState(0)
+  const [countdownReady, setCountdownReady] = useState(false)
+  const [submittedSummary, setSubmittedSummary] = useState<{
+    totalQuestions: number
+    correctCount: number
+    score: number
+  } | null>(null)
+
+  const inProgress = !loading && !submittedSummary
+  const allowLeaveRef = useRef(false)
+  const guardPathRef = useRef<string>('')
+  const bootedRef = useRef(false)
+
+  const activeQuestion = useMemo(
+    () => questions.find((q) => q.orderNumber === activeOrder) ?? questions[0] ?? null,
+    [activeOrder, questions]
   )
-  const progress = (answered / total) * 100
-  const firstUnansweredId =
-    questions.find((q) => !answers[q.id])?.id ?? questions[0]?.id ?? 1
+  const total = questions.length
+  const answered = useMemo(() => Object.values(answers).filter((v) => v != null).length, [answers])
+  const progress = total > 0 ? (answered / total) * 100 : 0
+
+  useEffect(() => {
+    if (bootedRef.current) return
+    bootedRef.current = true
+
+    if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
+      message.error('Assignment ID không hợp lệ')
+      navigate('/user/exam-list')
+      return
+    }
+
+    const boot = async () => {
+      setLoading(true)
+      setCountdownReady(false)
+      try {
+        let qs: AssignmentAttemptQuestion[] = []
+        let duration = 0
+        let started: string | null = null
+        let attempt: number | null = null
+        let statusFromQuestions: string | undefined
+
+        try {
+          const startRes = await startAiAssignment(assignmentId)
+          const startData = startRes.data
+          attempt = startData?.attemptId ?? null
+          duration = startData?.durationMinutes ?? 0
+          started = startData?.startedAt ?? null
+          qs = startData?.questions ?? []
+        } catch {
+          // Fallback cho các trường hợp đã có attempt trước đó (hoặc start bị từ chối),
+          // thử lấy trực tiếp danh sách câu hỏi để tiếp tục luồng làm bài.
+        }
+
+        if (!qs.length) {
+          const qRes = await getAiAssignmentQuestions(assignmentId)
+          attempt = qRes.data?.attemptId ?? attempt
+          duration = qRes.data?.durationMinutes ?? duration
+          qs = qRes.data?.questions ?? []
+          statusFromQuestions = qRes.data?.status
+        }
+
+        setAttemptId(attempt)
+        setDurationMinutes(duration)
+        setStartedAt(started)
+
+        setQuestions(qs)
+        setAnswers(
+          Object.fromEntries(
+            qs.map((q) => [q.question.id, normalizeAnswer(q.answer?.studentAnswer)])
+          )
+        )
+        setActiveOrder(qs[0]?.orderNumber ?? 1)
+
+        const totalSeconds = Math.max(0, Number(duration || 0) * 60)
+        if (totalSeconds > 0) {
+          const startedMs = started ? new Date(started).getTime() : Date.now()
+          const elapsed = Math.floor((Date.now() - startedMs) / 1000)
+          setRemainingSeconds(Math.max(0, totalSeconds - elapsed))
+        } else {
+          // Nếu backend không trả duration hợp lệ thì không auto-submit theo đồng hồ.
+          setRemainingSeconds(0)
+        }
+        setCountdownReady(true)
+
+        if ((statusFromQuestions ?? '').toLowerCase() === 'completed') {
+          Modal.info({
+            title: 'Bài này đã được nộp trước đó',
+            content: 'Bạn đã hoàn thành bài này nên không thể làm lại.',
+            onOk: () => navigate('/user/exam-list'),
+          })
+          return
+        }
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : 'Không thể bắt đầu làm bài')
+        navigate('/user/exam-list')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void boot()
+  }, [assignmentId, navigate])
+
+  useEffect(() => {
+    if (!inProgress) return
+    const startedMs = startedAt ? new Date(startedAt).getTime() : Date.now()
+    const totalSeconds = Math.max(0, (durationMinutes || 0) * 60)
+    if (!totalSeconds) {
+      setCountdownReady(true)
+      return
+    }
+
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - startedMs) / 1000)
+      const remain = Math.max(0, totalSeconds - elapsed)
+      setRemainingSeconds(remain)
+    }
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [durationMinutes, inProgress, startedAt])
+
+  useEffect(() => {
+    if (inProgress && countdownReady && durationMinutes > 0 && remainingSeconds === 0 && total > 0) {
+      void handleSubmit(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainingSeconds, inProgress, total, countdownReady, durationMinutes])
+
+  useEffect(() => {
+    if (!inProgress) return
+    guardPathRef.current = window.location.pathname + window.location.search
+    window.history.pushState({ examGuard: true }, '', guardPathRef.current)
+
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (allowLeaveRef.current) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    const onPopState = () => {
+      if (allowLeaveRef.current) return
+      window.history.pushState({ examGuard: true }, '', guardPathRef.current)
+      Modal.confirm({
+        title: 'Bạn có chắc muốn thoát bài làm?',
+        content: 'Bạn đang trong quá trình làm bài. Nếu thoát bây giờ, dữ liệu có thể chưa được nộp.',
+        okText: 'Thoát',
+        okButtonProps: { danger: true },
+        cancelText: 'Ở lại làm tiếp',
+        onOk: () => {
+          allowLeaveRef.current = true
+          navigate('/user/exam-list')
+        },
+      })
+    }
+
+    window.addEventListener('beforeunload', onBeforeUnload)
+    window.addEventListener('popstate', onPopState)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      window.removeEventListener('popstate', onPopState)
+    }
+  }, [inProgress, navigate])
+
+  const handleSubmit = async (forcedByTimeout = false) => {
+    if (submitting || !inProgress) return
+    try {
+      setSubmitting(true)
+      const payload = {
+        answers: questions.map((q) => ({
+          questionId: q.question.id,
+          selectedAnswer: normalizeAnswer(answers[q.question.id]),
+        })),
+        timeSpentSeconds: Math.max(0, (durationMinutes || 0) * 60 - remainingSeconds),
+      }
+      const res = await submitAiAssignment(assignmentId, payload)
+      allowLeaveRef.current = true
+      setSubmittedSummary({
+        totalQuestions: res.data?.totalQuestions ?? total,
+        correctCount: res.data?.correctCount ?? 0,
+        score: res.data?.score ?? 0,
+      })
+      message.success(forcedByTimeout ? 'Hết giờ, hệ thống đã tự nộp bài.' : res.message ?? 'Nộp bài thành công')
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Nộp bài thất bại')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const askSubmit = () => {
+    Modal.confirm({
+      title: 'Xác nhận nộp bài',
+      content: `Bạn đã trả lời ${answered}/${total} câu. Bạn có muốn nộp bài ngay không?`,
+      okText: 'Nộp bài',
+      cancelText: 'Làm tiếp',
+      onOk: () => handleSubmit(false),
+    })
+  }
+
+  const askExit = () => {
+    Modal.confirm({
+      title: 'Bạn có chắc muốn thoát bài làm?',
+      content: 'Bạn đang trong quá trình làm bài. Nếu thoát bây giờ, dữ liệu có thể chưa được nộp.',
+      okText: 'Thoát',
+      okButtonProps: { danger: true },
+      cancelText: 'Ở lại làm tiếp',
+      onOk: () => {
+        allowLeaveRef.current = true
+        navigate('/user/exam-list')
+      },
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background-light dark:bg-background-dark">
+        <Spin size="large" />
+      </div>
+    )
+  }
+
+  if (submittedSummary) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sky-50 via-white to-violet-50 p-6 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="bg-gradient-to-r from-primary/10 via-sky-500/10 to-violet-500/10 p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <span className="material-symbols-outlined text-4xl">verified</span>
+            </div>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+              Chúc mừng! Bạn đã hoàn thành bài thi
+            </h2>
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              Bài làm đã được ghi nhận thành công. Bạn có thể quay về dashboard để tiếp tục các hoạt động học tập.
+            </p>
+            <Button
+              type="primary"
+              size="large"
+              className="mt-7 !h-11 !rounded-xl !px-6 !font-bold"
+              onClick={() => navigate('/user/dashboard')}
+            >
+              Quay lại dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background-light text-slate-900 dark:bg-background-dark dark:text-slate-100">
       <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center rounded-lg bg-primary p-1 text-white">
-              <span className="material-symbols-outlined text-xl">school</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold leading-none">
-                Ôn tập Vật lý lượng tử 12
-              </h1>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                Chuyên đề: Lượng tử ánh sáng – Mẫu nguyên tử Bohr
-              </p>
-            </div>
+          <div>
+            <h1 className="text-lg font-bold leading-none">Bài làm #{assignmentId}</h1>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Attempt #{attemptId ?? '—'} · {total} câu
+            </p>
           </div>
-
-          <div className="flex items-center gap-4">
-            <div className="hidden flex-col items-end md:flex">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Thời gian còn lại
-              </span>
-              <span className="font-mono text-lg font-bold text-primary">
-                45:30
-              </span>
-            </div>
-            <div className="h-7 w-px bg-slate-200 dark:bg-slate-700" />
-            <Button
-              type="primary"
-              size="middle"
-              className="flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-semibold shadow-md shadow-primary/20 hover:!bg-primary/90"
-            >
-              <span className="material-symbols-outlined text-base">send</span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">
+              {fmtClock(remainingSeconds)}
+            </span>
+            <Button danger onClick={askExit}>
+              Thoát
+            </Button>
+            <Button type="primary" loading={submitting} onClick={askSubmit}>
               Nộp bài
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-[1440px] flex-col gap-8 p-4 md:p-6 lg:p-8 lg:flex-row">
-        <section className="w-full space-y-5 lg:w-[70%]">
-          <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 md:p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold md:text-sm">Tiến độ làm bài</span>
-              <span className="text-xs font-bold text-primary md:text-sm">
-                {answered} / {total} câu
-              </span>
+      <main className="mx-auto flex max-w-[1440px] flex-col gap-6 p-4 md:p-6 lg:p-8 lg:flex-row">
+        <section className="w-full space-y-4 lg:w-[70%]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span>Tiến độ làm bài</span>
+              <span className="font-bold text-primary">{answered} / {total} câu</span>
             </div>
-            <Progress
-              percent={progress}
-              showInfo={false}
-              strokeColor="#2563EB"
-              className="[&_.ant-progress-inner]:bg-slate-100 [&_.ant-progress-inner]:dark:bg-slate-800"
-            />
+            <Progress percent={progress} showInfo={false} />
           </div>
 
-          {questions.map((question) => {
-            const selectedChoice = answers[question.id] ?? null
-
-            return (
+          {activeQuestion ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-3 text-sm font-bold text-primary">Câu {activeQuestion.orderNumber}</div>
               <div
-                key={question.id}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
-              >
-                <div className="flex items-start justify-between border-b border-slate-100 p-4 md:p-5 dark:border-slate-800">
-                  <div>
-                    <span className="rounded-full bg-primary/10 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
-                      {question.label}
-                    </span>
-                    <h2 className="mt-3 text-base font-semibold leading-relaxed md:text-lg">
-                      {question.hasFormula ? (
-                        <>
-                          Một photon có bước sóng{' '}
-                          <span
-                            className="inline-block align-middle"
-                            dangerouslySetInnerHTML={renderMath(
-                              '\\\\lambda = 4{,}0 \\\\times 10^{-7}\\\\,m',
-                            )}
-                          />{' '}
-                          . Năng lượng của photon này gần giá trị nào nhất? (Lấy{' '}
-                          <span
-                            className="inline-block align-middle"
-                            dangerouslySetInnerHTML={renderMath(
-                              'h = 6{,}625 \\\\times 10^{-34}\\\\,J.s',
-                            )}
-                          />
-                          ,{' '}
-                          <span
-                            className="inline-block align-middle"
-                            dangerouslySetInnerHTML={renderMath(
-                              'c = 3{,}0 \\\\times 10^8\\\\,m/s',
-                            )}
-                          />
-                          ).
-                        </>
-                      ) : (
-                        question.content
-                      )}
-                    </h2>
-                  </div>
-                  <button className="flex items-center gap-1.5 text-slate-400 transition-colors hover:text-primary">
-                    <span className="material-symbols-outlined">bookmark</span>
-                    <span className="text-xs font-medium md:text-sm">Đánh dấu</span>
-                  </button>
-                </div>
-
-                <div className="space-y-3 p-4 md:p-5">
-                  {question.choices.map((choice) => {
-                    const isSelected = selectedChoice === choice.id
-                    const isCorrect = question.correctId === choice.id
-
-                    return (
-                      <label
-                        key={choice.id}
-                        className={`group flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3 text-sm transition-all md:text-base ${
-                          isSelected
-                            ? 'border-primary bg-primary/5'
-                            : 'border-slate-100 bg-slate-50/50 hover:border-primary/30 dark:border-slate-800 dark:bg-slate-800/30'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`q-${question.id}`}
-                          checked={isSelected}
-                          onChange={() =>
-                            setAnswers((prev) => ({ ...prev, [question.id]: choice.id }))
-                          }
-                          className="h-4 w-4 cursor-pointer text-primary focus:ring-primary"
-                        />
-                        <span
-                          className={`${
-                            isCorrect ? 'font-semibold text-slate-900 dark:text-white' : 'font-medium'
-                          }`}
-                        >
-                          {choice.id}. {choice.text}
-                        </span>
-                        {isCorrect && (
-                          <span className="ml-auto material-symbols-outlined text-primary">
-                            check_circle
-                          </span>
-                        )}
-                      </label>
-                    )
-                  })}
-                </div>
+                className="rounded-xl bg-slate-50 p-4 text-sm leading-relaxed dark:bg-slate-800"
+                dangerouslySetInnerHTML={{ __html: decorateMathInHtml(activeQuestion.question.contentHtml ?? '') }}
+              />
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {Object.entries(activeQuestion.question.options ?? {}).map(([key, text]) => {
+                  const k = String(key).toUpperCase().slice(0, 1)
+                  const selected = normalizeAnswer(answers[activeQuestion.question.id]) === k
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setAnswers((prev) => ({ ...prev, [activeQuestion.question.id]: k }))}
+                      className={
+                        selected
+                          ? 'rounded-xl border border-primary bg-primary/10 p-3 text-left'
+                          : 'rounded-xl border border-slate-200 bg-white p-3 text-left hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800'
+                      }
+                    >
+                      <span className="font-bold">{k}.</span>{' '}
+                      <span dangerouslySetInnerHTML={{ __html: optionAsHtml(text) }} />
+                    </button>
+                  )
+                })}
               </div>
-            )
-          })}
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <Button
+                  disabled={activeOrder <= 1}
+                  onClick={() => setActiveOrder((v) => Math.max(1, v - 1))}
+                >
+                  Câu trước
+                </Button>
+                <Button
+                  type="primary"
+                  disabled={activeOrder >= total}
+                  onClick={() => setActiveOrder((v) => Math.min(total, v + 1))}
+                >
+                  Câu sau
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+              Không có câu hỏi để hiển thị.
+            </div>
+          )}
         </section>
 
-        <aside className="w-full space-y-5 lg:w-[30%]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400 md:text-sm">
-              Thời gian còn lại
-            </h3>
-            <div className="flex items-center justify-center gap-4">
-              <div className="flex flex-col">
-                <span className="text-3xl font-black text-slate-800 dark:text-white md:text-4xl">
-                  45
-                </span>
-                <span className="text-[10px] font-bold uppercase text-slate-400">
-                  Phút
-                </span>
-              </div>
-              <span className="animate-pulse text-3xl font-black text-primary md:text-4xl">
-                :
-              </span>
-              <div className="flex flex-col">
-                <span className="text-3xl font-black text-slate-800 dark:text-white md:text-4xl">
-                  30
-                </span>
-                <span className="text-[10px] font-bold uppercase text-slate-400">
-                  Giây
-                </span>
-              </div>
-            </div>
-          </div>
-
+        <aside className="w-full lg:w-[30%]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="font-bold">Danh sách câu hỏi</h3>
-              <span className="text-xs font-medium text-slate-400">
-                {total} câu
-              </span>
+              <span className="text-xs text-slate-400">{total} câu</span>
             </div>
-            <div className="grid grid-cols-5 gap-3 sm:grid-cols-8 lg:grid-cols-5">
+            <div className="grid grid-cols-5 gap-2 sm:grid-cols-8 lg:grid-cols-5">
               {questions.map((q) => {
-                const isAnswered = !!answers[q.id]
-                const isActive = q.id === firstUnansweredId
-
-                if (isAnswered) {
-                  return (
-                    <div
-                      key={q.id}
-                      className="flex aspect-square cursor-pointer items-center justify-center rounded-lg bg-primary text-xs font-bold text-white md:text-sm"
-                    >
-                      {q.id}
-                    </div>
-                  )
-                }
-
-                if (isActive) {
-                  return (
-                    <div
-                      key={q.id}
-                      className="flex aspect-square cursor-pointer items-center justify-center rounded-lg border-2 border-primary bg-primary/10 text-xs font-black text-primary shadow-[0_0_10px_rgba(37,99,235,0.2)] md:text-sm"
-                    >
-                      {q.id}
-                    </div>
-                  )
-                }
-
+                const answeredQ = normalizeAnswer(answers[q.question.id]) != null
+                const activeQ = q.orderNumber === activeOrder
                 return (
-                  <div
-                    key={q.id}
-                    className="flex aspect-square cursor-pointer items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-400 dark:bg-slate-800 md:text-sm"
+                  <button
+                    key={`${q.orderNumber}-${q.question.id}`}
+                    type="button"
+                    onClick={() => setActiveOrder(q.orderNumber)}
+                    className={
+                      activeQ
+                        ? 'rounded-lg border-2 border-primary bg-primary/10 py-2 text-xs font-black text-primary'
+                        : answeredQ
+                          ? 'rounded-lg bg-primary py-2 text-xs font-bold text-white'
+                          : 'rounded-lg bg-slate-100 py-2 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                    }
                   >
-                    {q.id}
-                  </div>
+                    {q.orderNumber}
+                  </button>
                 )
               })}
             </div>
-            <div className="mt-8 grid grid-cols-2 gap-y-3 border-t border-slate-100 pt-6 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded bg-primary" />
-                <span className="text-xs font-medium">Đã trả lời</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-700" />
-                <span className="text-xs font-medium">Chưa làm</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded border-2 border-primary bg-primary/20" />
-                <span className="text-xs font-medium">Đang chọn</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded-full bg-amber-400" />
-                <span className="text-xs font-medium">Đánh dấu lại</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 dark:bg-primary/10">
-            <div className="mb-3 flex items-center gap-3 text-primary">
-              <span className="material-symbols-outlined">info</span>
-              <h4 className="font-bold">Hỗ trợ kỹ thuật</h4>
-            </div>
-            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-              Nếu gặp lỗi kỹ thuật (mất mạng, không tải được câu hỏi, v.v.), hãy
-              nhấn vào nút hỗ trợ ở góc phải bên dưới để liên hệ giám thị.
-            </p>
           </div>
         </aside>
       </main>
-
-      <button className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white text-primary shadow-2xl transition-transform hover:scale-110 active:scale-95 dark:border-slate-800 dark:bg-slate-900">
-        <span className="material-symbols-outlined text-3xl">headset_mic</span>
-      </button>
     </div>
   )
 }

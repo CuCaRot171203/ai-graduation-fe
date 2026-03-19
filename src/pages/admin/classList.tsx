@@ -258,7 +258,7 @@ export default function ClassList() {
             <div className="mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div className="flex flex-wrap items-center gap-4">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">page</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Trang</label>
                   <InputNumber
                     min={1}
                     value={params.page}
@@ -267,7 +267,7 @@ export default function ClassList() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">limit</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Giới hạn</label>
                   <InputNumber
                     min={1}
                     max={100}
@@ -277,7 +277,7 @@ export default function ClassList() {
                   />
                 </div>
                 <div className="min-w-[200px] flex-1">
-                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">search</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Tìm kiếm</label>
                   <Input
                     placeholder="Tìm theo tên hoặc mã lớp"
                     value={params.search}
@@ -288,9 +288,9 @@ export default function ClassList() {
                   />
                 </div>
                 <div className="w-28">
-                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">teacherId</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Mã giảng viên</label>
                   <InputNumber
-                    placeholder="teacherId"
+                    placeholder="Mã giáo viên"
                     min={1}
                     value={params.teacherId}
                     onChange={(v) => setParams((p) => ({ ...p, teacherId: v ?? undefined, page: 1 }))}
@@ -298,9 +298,9 @@ export default function ClassList() {
                   />
                 </div>
                 <div className="w-28">
-                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">subjectId</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Mã môn học</label>
                   <InputNumber
-                    placeholder="subjectId"
+                    placeholder="Mã môn học"
                     min={1}
                     value={params.subjectId}
                     onChange={(v) => setParams((p) => ({ ...p, subjectId: v ?? undefined, page: 1 }))}
@@ -308,16 +308,16 @@ export default function ClassList() {
                   />
                 </div>
                 <div className="w-32">
-                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">schoolYear</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Năm học</label>
                   <Input
-                    placeholder="schoolYear"
+                    placeholder="Năm học"
                     value={params.schoolYear}
                     onChange={(e) => setParams((p) => ({ ...p, schoolYear: e.target.value, page: 1 }))}
                     className="rounded-lg [&.ant-input]:rounded-lg"
                   />
                 </div>
                 <div className="w-40">
-                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">isActive</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Trạng thái</label>
                   <Select
                     value={params.isActiveFilter || undefined}
                     placeholder="--"

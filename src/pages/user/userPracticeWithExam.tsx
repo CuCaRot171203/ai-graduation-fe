@@ -5,9 +5,11 @@ import SidebarStudent from '../../components/SidebarStudent'
 import TheHeader from '../../components/TheHeader'
 import {
   getAiTopics,
+  getStepSolutionWithAi,
   getPracticeQuestions,
   getPracticeResult,
   patchPracticeProgress,
+  explainQuestionWithAi,
   startPractice,
   submitPractice,
   type AiTopic,
@@ -52,6 +54,10 @@ export default function UserPracticeWithExam() {
   const timerRef = useRef<number | null>(null)
 
   const [view, setView] = useState<'practice' | 'result'>('practice')
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+  const [aiModalTitle, setAiModalTitle] = useState('')
+  const [aiContentHtml, setAiContentHtml] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
 
   const fetchTopics = useCallback(() => {
     if (!Number.isFinite(subjectIdNum) || subjectIdNum <= 0) return
@@ -187,6 +193,62 @@ export default function UserPracticeWithExam() {
     [topics]
   )
 
+  const buildAiQuestionPayload = (q: unknown) => {
+    const qq = (q ?? {}) as Record<string, unknown>
+    return {
+      content_html: (qq.contentHtml as string) ?? (qq.content_html as string) ?? '',
+      options: (qq.options as Record<string, string>) ?? {},
+      correct_answer: (qq.correctAnswer as string) ?? (qq.correct_answer as string) ?? '',
+      topic: (qq.topic as string) ?? undefined,
+      bloom_level: (qq.bloomLevel as string) ?? (qq.bloom_level as string) ?? undefined,
+    }
+  }
+
+  const asHtml = (raw: string | undefined | null): string => {
+    if (!raw) return ''
+    const s = String(raw)
+    if (/<[a-z][\s\S]*>/i.test(s)) return s
+    return s.replace(/\n/g, '<br />')
+  }
+
+  const handleExplainAi = async (question: unknown, orderLabel: string, questionId?: number) => {
+    try {
+      setAiModalTitle(`Giải thích với AI - ${orderLabel}`)
+      setAiLoading(true)
+      setAiModalOpen(true)
+      setAiContentHtml('')
+      const res = await explainQuestionWithAi({
+        questionId,
+        question: buildAiQuestionPayload(question),
+      })
+      setAiContentHtml(asHtml(res.data?.explanation ?? 'AI chưa trả về nội dung giải thích.'))
+    } catch (err) {
+      setAiContentHtml('')
+      message.error(err instanceof Error ? err.message : 'Không thể lấy giải thích AI')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const handleStepSolutionAi = async (question: unknown, orderLabel: string, questionId?: number) => {
+    try {
+      setAiModalTitle(`Chi tiết bước giải AI - ${orderLabel}`)
+      setAiLoading(true)
+      setAiModalOpen(true)
+      setAiContentHtml('')
+      const res = await getStepSolutionWithAi({
+        questionId,
+        question: buildAiQuestionPayload(question),
+      })
+      setAiContentHtml(asHtml(res.data?.stepSolution ?? 'AI chưa trả về bước giải chi tiết.'))
+    } catch (err) {
+      setAiContentHtml('')
+      message.error(err instanceof Error ? err.message : 'Không thể lấy bước giải AI')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen overflow-hidden bg-background-light font-display text-slate-900 dark:bg-background-dark dark:text-slate-100 antialiased">
       <SidebarStudent activeItem="practice" variant="dashboard" />
@@ -305,6 +367,23 @@ export default function UserPracticeWithExam() {
                                     dangerouslySetInnerHTML={{ __html: q.explanationHtml }}
                                   />
                                 ) : null}
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <Button
+                                    type="primary"
+                                    icon={<span className="material-symbols-outlined text-base">psychology</span>}
+                                    className="!h-9 !rounded-full !border-0 !bg-violet-600 !px-4 !font-semibold hover:!bg-violet-700"
+                                    onClick={() => handleExplainAi(q, `Câu ${order}`, q?.id)}
+                                  >
+                                    Giải thích với AI
+                                  </Button>
+                                  <Button
+                                    icon={<span className="material-symbols-outlined text-base">format_list_numbered</span>}
+                                    className="!h-9 !rounded-full !border-violet-300 !bg-violet-50 !px-4 !font-semibold !text-violet-700 hover:!border-violet-400 hover:!bg-violet-100 dark:!border-violet-700 dark:!bg-violet-900/30 dark:!text-violet-200"
+                                    onClick={() => handleStepSolutionAi(q, `Câu ${order}`, q?.id)}
+                                  >
+                                    Chi tiết bước giải AI
+                                  </Button>
+                                </div>
                               </div>
                             )
                           })}
@@ -495,6 +574,30 @@ export default function UserPracticeWithExam() {
               <p className="text-sm text-slate-500 dark:text-slate-400">Hệ thống đang chuẩn bị câu hỏi cho bạn...</p>
             </div>
           </div>
+        </Modal>
+
+        <Modal
+          open={aiModalOpen}
+          title={aiModalTitle}
+          onCancel={() => setAiModalOpen(false)}
+          footer={[
+            <Button key="close" onClick={() => setAiModalOpen(false)}>
+              Đóng
+            </Button>,
+          ]}
+          width={760}
+          destroyOnHidden
+        >
+          {aiLoading ? (
+            <div className="py-8 text-center text-slate-500">AI đang phân tích câu hỏi...</div>
+          ) : aiContentHtml ? (
+            <div
+              className="prose prose-sm dark:prose-invert max-h-[60vh] max-w-none overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-4 leading-relaxed dark:border-slate-700 dark:bg-slate-900"
+              dangerouslySetInnerHTML={{ __html: aiContentHtml }}
+            />
+          ) : (
+            <div className="py-8 text-center text-slate-500">Chưa có nội dung.</div>
+          )}
         </Modal>
       </main>
     </div>

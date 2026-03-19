@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import SidebarStudent from '../../components/SidebarStudent'
 import TheHeader from '../../components/TheHeader'
+import { getSubjectById } from '../../apis/subjectsApi'
 
 const STUDENT_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
@@ -49,6 +51,23 @@ function OptionCard({
 export default function UserPracticeOptions() {
   const { subjectId } = useParams()
   const id = subjectId ?? ''
+  const subjectIdNum = Number(subjectId)
+  const [subjectName, setSubjectName] = useState<string>('—')
+
+  useEffect(() => {
+    if (!Number.isFinite(subjectIdNum) || subjectIdNum <= 0) {
+      setSubjectName('—')
+      return
+    }
+
+    getSubjectById(subjectIdNum)
+      .then((res) => {
+        setSubjectName(res?.data?.name ?? `Môn ${subjectIdNum}`)
+      })
+      .catch(() => {
+        setSubjectName(`Môn ${subjectIdNum}`)
+      })
+  }, [subjectIdNum])
 
   return (
     <div className="flex min-h-screen overflow-hidden bg-background-light font-display text-slate-900 dark:bg-background-dark dark:text-slate-100 antialiased">
@@ -75,7 +94,7 @@ export default function UserPracticeOptions() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900 dark:text-white">Môn học</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Subject ID: {id || '—'}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Môn học: {subjectName}</p>
                 </div>
                 <Link to="/user/subject-list" className="text-sm font-semibold text-primary hover:underline">
                   Quay lại danh sách môn

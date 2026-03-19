@@ -327,7 +327,7 @@ export default function AllSubjects() {
               <div className="flex flex-wrap items-center gap-4">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                    page
+                    Trang
                   </label>
                   <InputNumber
                     min={1}
@@ -338,7 +338,7 @@ export default function AllSubjects() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                    limit
+                    Giới hạn
                   </label>
                   <InputNumber
                     min={1}
@@ -375,7 +375,7 @@ export default function AllSubjects() {
                 </div>
                 <div className="w-36">
                   <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                    sortBy
+                    Sắp xếp theo
                   </label>
                   <Select
                     value={params.sortBy}
@@ -386,7 +386,7 @@ export default function AllSubjects() {
                 </div>
                 <div className="w-32">
                   <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                    sortOrder
+                    Thứ tự
                   </label>
                   <Select
                     value={params.sortOrder}

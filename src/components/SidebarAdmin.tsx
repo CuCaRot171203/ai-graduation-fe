@@ -4,30 +4,31 @@ import { clearSessionAndRedirectToLogin } from '../utils/session'
 
 export type SidebarAdminProps = {
   activeItem?: string
+  compact?: boolean
 }
 
-export default function SidebarAdmin({ activeItem = 'dashboard' }: SidebarAdminProps) {
-  const activeNav = 'active-nav flex w-full items-center gap-3 px-6 py-3 text-left font-medium'
+export default function SidebarAdmin({ activeItem = 'dashboard', compact = false }: SidebarAdminProps) {
+  const activeNav = 'active-nav flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium'
   const inactive =
-    'flex w-full items-center gap-3 px-6 py-3 text-left text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'
+    'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'
 
   return (
-    <aside className="fixed flex h-full w-64 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-center gap-3 p-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white">
-          <span className="material-symbols-outlined">quiz</span>
+    <aside className={`fixed flex h-full ${compact ? 'w-60' : 'w-64'} flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900`}>
+      <div className="flex items-center gap-3 p-5">
+        <div className="flex items-center justify-center rounded-lg bg-primary p-1.5 text-white">
+          <span className="material-symbols-outlined text-2xl">school</span>
         </div>
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-xl font-bold text-primary">
             ExamPro
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Bảng điều khiển Admin
+            Hệ thống quản lý thi
           </p>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-3">
         <div className="space-y-1">
           <Link to="/admin/dashboard" className={activeItem === 'dashboard' ? activeNav : inactive}>
             <span className="material-symbols-outlined">dashboard</span>
@@ -41,10 +42,14 @@ export default function SidebarAdmin({ activeItem = 'dashboard' }: SidebarAdminP
             <span className="material-symbols-outlined">description</span>
             Quản lý đề thi
           </Link>
-          <button type="button" className={inactive}>
+          <Link to="/admin/question-bank" className={activeItem === 'question-bank' ? activeNav : inactive}>
             <span className="material-symbols-outlined">database</span>
             Ngân hàng câu hỏi
-          </button>
+          </Link>
+          <Link to="/admin/topics" className={activeItem === 'topics' ? activeNav : inactive}>
+            <span className="material-symbols-outlined">topic</span>
+            Quản lý chủ đề
+          </Link>
           <Link to="/admin/all-subjects" className={activeItem === 'subjects' ? activeNav : inactive}>
             <span className="material-symbols-outlined">category</span>
             Danh mục môn học
@@ -55,13 +60,13 @@ export default function SidebarAdmin({ activeItem = 'dashboard' }: SidebarAdminP
           </Link>
         </div>
 
-        <div className="mt-8 space-y-1 border-t border-slate-100 pt-8 dark:border-slate-800">
+        <div className="mt-6 space-y-1 border-t border-slate-100 pt-6 dark:border-slate-800">
           <button
             type="button"
             onClick={() => {
               logout().finally(() => clearSessionAndRedirectToLogin())
             }}
-            className="flex w-full items-center gap-3 px-6 py-3 text-left text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
           >
             <span className="material-symbols-outlined">logout</span>
             Đăng xuất
