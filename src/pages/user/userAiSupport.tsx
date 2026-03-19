@@ -77,11 +77,13 @@ export default function UserAiSupport() {
     forwardToStudyPlan?: boolean
   }
 
+  type PredictFactor = { factor: string; value: string }
   type PredictResponse = {
     predictedScore?: number | null
-    confidenceRange?: unknown
-    factors?: string[]
+    confidenceRange?: { low?: number; high?: number } | null
+    factors?: PredictFactor[]
     message?: string
+    explanation?: string
   }
 
   type StudyPlanResponse = {
@@ -180,8 +182,9 @@ export default function UserAiSupport() {
   const renderPredict = (data: PredictResponse) => {
     const predictedScore = data?.predictedScore ?? null
     const confidenceRange = data?.confidenceRange ?? null
-    const factors = (data?.factors ?? []) as string[]
+    const factors = (data?.factors ?? []) as PredictFactor[]
     const messageText = data?.message ?? ''
+    const explanation = data?.explanation ?? ''
 
     return (
       <div className="space-y-4">
@@ -215,11 +218,14 @@ export default function UserAiSupport() {
               />
             ) : (
               <div>
-                <div className="text-4xl font-black text-slate-900 dark:text-white">{predictedScore}</div>
+                <div className="text-4xl font-black text-slate-900 dark:text-white">{predictedScore}<span className="text-lg font-normal text-slate-500">/100</span></div>
                 {confidenceRange ? (
                   <div className="mt-1 text-sm text-slate-700 dark:text-slate-200">
-                    Khoảng tin cậy: {typeof confidenceRange === 'string' ? confidenceRange : JSON.stringify(confidenceRange)}
+                    Khoảng tin cậy: {confidenceRange.low ?? '?'} - {confidenceRange.high ?? '?'}
                   </div>
+                ) : null}
+                {explanation ? (
+                  <div className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{explanation}</div>
                 ) : null}
               </div>
             )}
@@ -238,7 +244,10 @@ export default function UserAiSupport() {
                   <span className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
                     {idx + 1}
                   </span>
-                  <div className="text-sm text-slate-700 dark:text-slate-200">{f}</div>
+                  <div>
+                    <div className="font-semibold text-slate-900 dark:text-white">{f.factor}</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300">{f.value}</div>
+                  </div>
                 </div>
               ))}
             </div>
