@@ -15,30 +15,7 @@ export default function LandingPage() {
           </div>
 
           <nav className="hidden items-center gap-8 md:flex">
-            <a
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-primary dark:text-slate-300"
-              href="#"
-            >
-              Tính năng
-            </a>
-            <a
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-primary dark:text-slate-300"
-              href="#"
-            >
-              Đề thi
-            </a>
-            <a
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-primary dark:text-slate-300"
-              href="#"
-            >
-              Bảng giá
-            </a>
-            <a
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-primary dark:text-slate-300"
-              href="#"
-            >
-              Về chúng tôi
-            </a>
+            
           </nav>
 
           <div className="flex items-center gap-3">
@@ -48,9 +25,12 @@ export default function LandingPage() {
             >
               Đăng nhập
             </Link>
-            <button className="flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90">
+            <Link
+              to="/register"
+              className="flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+            >
               Đăng ký
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -309,125 +289,6 @@ export default function LandingPage() {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="container mx-auto max-w-[1200px] px-6 py-24">
-          <div className="mb-16 space-y-4 text-center">
-            <h2 className="text-3xl font-bold">Lựa chọn gói học tập</h2>
-            <p className="text-slate-500 dark:text-slate-400">
-              Phù hợp với mọi nhu cầu từ học sinh đến tổ chức giáo dục
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-8 transition-all hover:border-primary/30 dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-8">
-                <h3 className="mb-2 text-lg font-bold">Miễn phí</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black">0đ</span>
-                  <span className="text-slate-500">/tháng</span>
-                </div>
-              </div>
-              <ul className="mb-10 flex-1 space-y-4">
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  100+ đề thi cơ bản
-                </li>
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Xem giải chi tiết cơ bản
-                </li>
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Lưu lịch sử làm bài
-                </li>
-              </ul>
-              <button className="w-full rounded-xl border-2 border-slate-100 py-3 font-bold transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800">
-                Bắt đầu ngay
-              </button>
-            </div>
-
-            <div className="relative flex flex-col rounded-2xl border-2 border-primary bg-white p-8 shadow-2xl shadow-primary/10 dark:bg-slate-900">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-bold uppercase text-white">
-                Phổ biến nhất
-              </div>
-              <div className="mb-8">
-                <h3 className="mb-2 text-lg font-bold text-primary">Pro</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black">199k</span>
-                  <span className="text-slate-500">/tháng</span>
-                </div>
-              </div>
-              <ul className="mb-10 flex-1 space-y-4">
-                <li className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Không giới hạn đề thi
-                </li>
-                <li className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Phân tích điểm mạnh/yếu AI
-                </li>
-                <li className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Tải đề thi PDF về máy
-                </li>
-                <li className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Không quảng cáo
-                </li>
-              </ul>
-              <button className="w-full rounded-xl bg-primary py-3 font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary/90">
-                Nâng cấp Pro
-              </button>
-            </div>
-
-            <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-8 transition-all hover:border-primary/30 dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-8">
-                <h3 className="mb-2 text-lg font-bold">Premium</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black">499k</span>
-                  <span className="text-slate-500">/tháng</span>
-                </div>
-              </div>
-              <ul className="mb-10 flex-1 space-y-4">
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Tất cả tính năng Pro
-                </li>
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Hỗ trợ 1:1 từ giáo viên
-                </li>
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <span className="material-symbols-outlined text-lg text-primary">
-                    check_circle
-                  </span>{' '}
-                  Lộ trình học cá nhân hóa
-                </li>
-              </ul>
-              <button className="w-full rounded-xl border-2 border-slate-100 py-3 font-bold transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800">
-                Liên hệ tư vấn
-              </button>
             </div>
           </div>
         </section>
