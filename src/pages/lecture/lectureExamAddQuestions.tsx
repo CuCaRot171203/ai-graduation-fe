@@ -13,6 +13,7 @@ import {
   reviewOcrSession,
   approveAllOcrSession,
   saveOcrSession,
+  type AddQuestionToExamBody,
   type ExcelTemplate,
   type ExamQuestion,
 } from '../../apis/examsApi'
@@ -36,9 +37,25 @@ const BLOOM_LEVEL_OPTIONS = [
   { value: 'nhan_biet', label: 'Nhận biết' },
   { value: 'thong_hieu', label: 'Thông hiểu' },
   { value: 'van_dung', label: 'Vận dụng' },
+  { value: 'van_dung_cao', label: 'Vận dụng cao' },
   { value: 'phan_tich', label: 'Phân tích' },
   { value: 'danh_gia', label: 'Đánh giá' },
   { value: 'sang_tao', label: 'Sáng tạo' },
+]
+
+const QUESTION_TYPE_OPTIONS = [
+  { value: 'trac_nghiem_1_dap_an', label: 'Phần I - Trắc nghiệm 1 đáp án đúng' },
+  { value: 'trac_nghiem_dung_sai', label: 'Phần II - Trắc nghiệm đúng sai' },
+  { value: 'trac_nghiem_tra_loi_ngan', label: 'Phần III - Trắc nghiệm trả lời ngắn' },
+  { value: 'tu_luan', label: 'Phần IV - Tự luận' },
+  { value: 'trac_nghiem_nhieu_dap_an', label: 'Trắc nghiệm nhiều đáp án đúng' },
+]
+
+const ROUNDING_OPTIONS = [
+  { value: 'integer', label: 'Số nguyên' },
+  { value: '1_decimal', label: '1 chữ số thập phân' },
+  { value: '2_decimals', label: '2 chữ số thập phân' },
+  { value: '3_decimals', label: '3 chữ số thập phân' },
 ]
 
 function stripHtml(html: string | undefined): string {
@@ -68,6 +85,23 @@ function topicLabelVi(topic: string): string {
   }
   if (map[t]) return map[t]
   return formatTopic(t)
+}
+
+function formatCorrectAnswer(correct: string | undefined, questionType: string | undefined): string {
+  if (!correct) return '—'
+  const qType = (questionType ?? 'trac_nghiem_1_dap_an') === 'trac_nghiem' ? 'trac_nghiem_1_dap_an' : (questionType ?? 'trac_nghiem_1_dap_an')
+  if (qType === 'trac_nghiem_nhieu_dap_an') return correct.replace(/,/g, ', ')
+  if (qType === 'trac_nghiem_dung_sai') {
+    try {
+      const obj = JSON.parse(correct) as Record<string, boolean>
+      return ['a', 'b', 'c', 'd'].map((k) => `${k}:${obj[k] ? 'Đ' : 'S'}`).join(', ')
+    } catch {
+      return correct
+    }
+  }
+  if (qType === 'trac_nghiem_tra_loi_ngan') return correct
+  if (qType === 'tu_luan') return correct.length > 50 ? correct.slice(0, 50) + '...' : correct
+  return correct
 }
 
 export default function LectureExamAddQuestions() {
@@ -118,19 +152,27 @@ export default function LectureExamAddQuestions() {
     const correctAnswer = (r.correctAnswer ?? r.correct_answer ?? '') as string
     const bloomLevel = (r.bloomLevel ?? r.bloom_level ?? '') as string
     const topic = (r.topic ?? 'general') as string
-    const questionType = (r.questionType ?? r.question_type ?? 'trac_nghiem') as string
+    const questionType = (r.questionType ?? r.question_type ?? 'trac_nghiem_1_dap_an') as string
     const id = (r.id as number | undefined) ?? undefined
-    // note: generated questions might not have id yet
+    let opts: Record<string, string>
+    if (questionType === 'trac_nghiem_dung_sai') {
+      opts = { a: options.a ?? '', b: options.b ?? '', c: options.c ?? '', d: options.d ?? '' }
+    } else if (questionType === 'trac_nghiem_tra_loi_ngan') {
+      opts = {}
+    } else {
+      opts = { A: options.A ?? '', B: options.B ?? '', C: options.C ?? '', D: options.D ?? '' }
+    }
     return {
       ...(id ? { id } : {}),
       order_number: (r.orderNumber as number | undefined) ?? (r.order_number as number | undefined) ?? index + 1,
       contentHtml,
-      options: { A: options.A ?? '', B: options.B ?? '', C: options.C ?? '', D: options.D ?? '' },
+      options: opts,
       correctAnswer,
       bloomLevel,
       topic,
       questionType,
       explanationHtml,
+      ...(questionType === 'trac_nghiem_tra_loi_ngan' && (r.roundingRule ?? r.rounding_rule) ? { roundingRule: (r.roundingRule ?? r.rounding_rule) as string } : {}),
     } as unknown as ExamQuestion
   }
 
@@ -159,15 +201,24 @@ export default function LectureExamAddQuestions() {
         const key = (q as { id?: number }).id ?? `gen-${i}`
         if (String(key) !== String(aiGenPreviewEditingKey)) return q
         const options = (aiGenPreviewDraft.options ?? {}) as Record<string, string>
+        const qType = (aiGenPreviewDraft as { questionType?: string }).questionType ?? (q as { questionType?: string }).questionType ?? 'trac_nghiem_1_dap_an'
+        let opts: Record<string, string>
+        if (qType === 'trac_nghiem_dung_sai') {
+          opts = { a: options.a ?? '', b: options.b ?? '', c: options.c ?? '', d: options.d ?? '' }
+        } else if (qType === 'trac_nghiem_tra_loi_ngan') {
+          opts = {}
+        } else {
+          opts = { A: options.A ?? '', B: options.B ?? '', C: options.C ?? '', D: options.D ?? '' }
+        }
         return {
           ...q,
           contentHtml: (aiGenPreviewDraft.contentHtml ?? '') as string,
-          options: { A: options.A ?? '', B: options.B ?? '', C: options.C ?? '', D: options.D ?? '' },
+          options: opts,
           correctAnswer: (aiGenPreviewDraft as { correctAnswer?: string }).correctAnswer ?? (q.correctAnswer ?? q.correct_answer),
           bloomLevel: (aiGenPreviewDraft as { bloomLevel?: string }).bloomLevel ?? (q.bloomLevel ?? q.bloom_level),
           topic: (aiGenPreviewDraft.topic as string) ?? (q.topic as string),
           explanationHtml: (aiGenPreviewDraft as { explanationHtml?: string }).explanationHtml ?? (q.explanationHtml ?? q.explanation_html),
-          questionType: (aiGenPreviewDraft as { questionType?: string }).questionType ?? (q as { questionType?: string }).questionType ?? 'trac_nghiem',
+          questionType: qType,
         } as ExamQuestion
       })
     )
@@ -202,16 +253,26 @@ export default function LectureExamAddQuestions() {
       for (let i = 0; i < pending.length; i++) {
         const q = pending[i]
         const options = (q.options ?? {}) as Record<string, string>
-        const body = {
+        const qType = ((q as { questionType?: string; question_type?: string }).questionType ??
+          (q as { question_type?: string }).question_type ??
+          'trac_nghiem_1_dap_an') as string
+        let opts: Record<string, string> | null = null
+        if (qType === 'trac_nghiem_1_dap_an' || qType === 'trac_nghiem_nhieu_dap_an') {
+          opts = { A: options.A ?? '', B: options.B ?? '', C: options.C ?? '', D: options.D ?? '' }
+        } else if (qType === 'trac_nghiem_dung_sai') {
+          opts = { a: options.a ?? '', b: options.b ?? '', c: options.c ?? '', d: options.d ?? '' }
+        }
+        const body: AddQuestionToExamBody = {
           content_html: ((q.contentHtml ?? q.content_html) ?? '') as string,
-          options: { A: options.A ?? '', B: options.B ?? '', C: options.C ?? '', D: options.D ?? '' },
-          question_type: ((q as { questionType?: string; question_type?: string }).questionType ??
-            (q as { question_type?: string }).question_type ??
-            'trac_nghiem') as string,
+          options: opts,
+          question_type: qType,
           topic: (q.topic ?? '') as string,
           bloom_level: ((q.bloomLevel ?? (q as { bloom_level?: string }).bloom_level) ?? '') as string,
           correct_answer: ((q.correctAnswer ?? q.correct_answer) ?? '') as string,
           explanation_html: ((q.explanationHtml ?? (q as { explanation_html?: string }).explanation_html) ?? '') as string,
+        }
+        if (qType === 'trac_nghiem_tra_loi_ngan') {
+          body.rounding_rule = (q as { roundingRule?: string; rounding_rule?: string }).roundingRule ?? (q as { rounding_rule?: string }).rounding_rule ?? '1_decimal'
         }
         await addQuestionToExam(examIdNum, body)
       }
@@ -274,10 +335,19 @@ export default function LectureExamAddQuestions() {
     if (!editingQuestionId || !editDraft) return
     try {
       const options = (editDraft.options ?? {}) as Record<string, string>
+      const qType = ((editDraft as { questionType?: string }).questionType ?? 'trac_nghiem_1_dap_an') as string
+      let opts: Record<string, string> | undefined
+      if (qType === 'trac_nghiem_1_dap_an' || qType === 'trac_nghiem_nhieu_dap_an') {
+        opts = { A: options.A ?? '', B: options.B ?? '', C: options.C ?? '', D: options.D ?? '' }
+      } else if (qType === 'trac_nghiem_dung_sai') {
+        opts = { a: options.a ?? '', b: options.b ?? '', c: options.c ?? '', d: options.d ?? '' }
+      } else {
+        opts = undefined
+      }
       await updateAiQuestion(editingQuestionId, {
         content_html: (editDraft.contentHtml ?? '') as string,
-        options: { A: options.A ?? '', B: options.B ?? '', C: options.C ?? '', D: options.D ?? '' },
-        question_type: ((editDraft as { questionType?: string }).questionType ?? 'trac_nghiem') as string,
+        options: opts,
+        question_type: qType,
         topic: (editDraft.topic as string) ?? 'general',
         bloom_level: ((editDraft as { bloomLevel?: string }).bloomLevel ?? '') as string,
         correct_answer: ((editDraft as { correctAnswer?: string }).correctAnswer ?? '') as string,
@@ -478,6 +548,59 @@ export default function LectureExamAddQuestions() {
                         const content = stripHtmlFull((record.contentHtml ?? record.content_html) as string)
                         const options = (record.options ?? {}) as Record<string, string>
                         const correct = (record.correct_answer ?? record.correctAnswer) as string
+                        const qType = ((record as { questionType?: string; question_type?: string }).questionType ?? (record as { question_type?: string }).question_type ?? 'trac_nghiem_1_dap_an') as string
+                        if (qType === 'trac_nghiem_dung_sai') {
+                          let answers: Record<string, boolean> = {}
+                          try {
+                            answers = JSON.parse(correct || '{}') as Record<string, boolean>
+                          } catch { /* ignore */ }
+                          const idx = ocrPending.questions.indexOf(record)
+                          const setAnswer = (k: string, v: boolean) => {
+                            const next = { ...answers, [k]: v }
+                            updateOcrQuestion(idx, 'correct_answer', JSON.stringify(next))
+                          }
+                          return (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
+                              <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
+                              <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các phát biểu (chọn Đúng/Sai):</p>
+                              <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                                {['a', 'b', 'c', 'd'].map((k) => (
+                                  <li key={k} className="flex items-center gap-2">
+                                    <span className="font-medium w-5">{k}).</span>
+                                    <span className="flex-1">{options[k] ?? '—'}</span>
+                                    <Select
+                                      size="small"
+                                      style={{ width: 90 }}
+                                      value={answers[k]}
+                                      onChange={(v) => setAnswer(k, v === true)}
+                                      options={[{ value: true, label: 'Đúng' }, { value: false, label: 'Sai' }]}
+                                    />
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )
+                        }
+                        if (qType === 'trac_nghiem_tra_loi_ngan') {
+                          return (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
+                              <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-300">Đáp án: <span className="font-semibold text-green-600 dark:text-green-400">{correct || '—'}</span></p>
+                            </div>
+                          )
+                        }
+                        if (qType === 'tu_luan') {
+                          return (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
+                              <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
+                              <div className="text-sm text-slate-600 dark:text-slate-300">
+                                <span className="font-medium">Đáp án / Lời giải:</span>
+                                <p className="mt-1 whitespace-pre-wrap text-green-700 dark:text-green-400">{correct || '(Chưa có đáp án)'}</p>
+                              </div>
+                            </div>
+                          )
+                        }
+                        const correctSet = qType === 'trac_nghiem_nhieu_dap_an' ? new Set((correct || '').split(',').map((s) => s.trim())) : new Set([correct])
                         return (
                           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
                             <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
@@ -485,7 +608,7 @@ export default function LectureExamAddQuestions() {
                             <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
                               {['A', 'B', 'C', 'D'].map((letter) => {
                                 const text = options[letter] ?? '—'
-                                const isCorrect = correct === letter
+                                const isCorrect = correctSet.has(letter)
                                 return (
                                   <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
                                     <span className="font-medium">{letter}.</span> {text}
@@ -510,16 +633,49 @@ export default function LectureExamAddQuestions() {
                       {
                         title: 'Đáp án đúng',
                         key: 'correct',
-                        width: 110,
-                        render: (_: unknown, r: ExamQuestion, i: number) => (
-                          <Select
-                            size="small"
-                            className="w-full"
-                            value={(r.correct_answer ?? r.correctAnswer) ?? undefined}
-                            onChange={(v) => updateOcrQuestion(i, 'correct_answer', v)}
-                            options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]}
-                          />
-                        ),
+                        width: 140,
+                        render: (_: unknown, r: ExamQuestion, i: number) => {
+                          const qType = ((r as { questionType?: string; question_type?: string }).questionType ?? (r as { question_type?: string }).question_type ?? 'trac_nghiem_1_dap_an') as string
+                          const raw = (r.correct_answer ?? r.correctAnswer) ?? ''
+                          if (qType === 'trac_nghiem_nhieu_dap_an') {
+                            const vals = raw ? raw.split(',').map((s) => s.trim()).filter(Boolean) : []
+                            return (
+                              <Select
+                                mode="multiple"
+                                size="small"
+                                className="w-full"
+                                value={vals}
+                                onChange={(v) => updateOcrQuestion(i, 'correct_answer', Array.isArray(v) ? v.join(',') : v)}
+                                options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]}
+                              />
+                            )
+                          }
+                          if (qType === 'trac_nghiem_dung_sai') {
+                            return <span className="text-sm">{formatCorrectAnswer(raw, qType)}</span>
+                          }
+                          if (qType === 'trac_nghiem_tra_loi_ngan') {
+                            return (
+                              <Input
+                                size="small"
+                                value={raw}
+                                onChange={(e) => updateOcrQuestion(i, 'correct_answer', e.target.value)}
+                                placeholder="Số"
+                              />
+                            )
+                          }
+                          if (qType === 'tu_luan') {
+                            return <span className="text-sm text-slate-500" title={raw}>{formatCorrectAnswer(raw, qType)}</span>
+                          }
+                          return (
+                            <Select
+                              size="small"
+                              className="w-full"
+                              value={raw || undefined}
+                              onChange={(v) => updateOcrQuestion(i, 'correct_answer', v)}
+                              options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]}
+                            />
+                          )
+                        },
                       },
                       {
                         title: 'Bloom',
@@ -604,10 +760,124 @@ export default function LectureExamAddQuestions() {
                       const content = stripHtmlFull((record.contentHtml ?? record.content_html) as string)
                       const options = (record.options ?? {}) as Record<string, string>
                       const correct = (record.correctAnswer ?? record.correct_answer) as string
-                      const letters = ['A', 'B', 'C', 'D']
+                      const qType = ((record as { questionType?: string; question_type?: string }).questionType ?? (record as { question_type?: string }).question_type ?? 'trac_nghiem_1_dap_an') as string
                       const id = (record as { id?: number }).id ?? null
                       const isEditing = id != null && id === editingQuestionId && !!editDraft
                       const draft = isEditing ? (editDraft as ExamQuestion) : record
+                      const draftOpts = (draft.options ?? {}) as Record<string, string>
+                      const draftCorrect = (draft as { correctAnswer?: string }).correctAnswer ?? correct
+
+                      const renderOptionsList = () => {
+                        if (qType === 'trac_nghiem_dung_sai') {
+                          let answers: Record<string, boolean> = {}
+                          try {
+                            answers = JSON.parse(draftCorrect || '{}') as Record<string, boolean>
+                          } catch { /* ignore */ }
+                          return (
+                            <>
+                              <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các phát biểu:</p>
+                              <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                                {['a', 'b', 'c', 'd'].map((k) => (
+                                  <li key={k} className={answers[k] ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
+                                    <span className="font-medium">{k}).</span> {(isEditing ? draftOpts[k] : options[k]) ?? '—'} — {answers[k] ? 'Đúng' : 'Sai'}
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )
+                        }
+                        if (qType === 'trac_nghiem_tra_loi_ngan') {
+                          return (
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
+                              Đáp án: <span className="font-semibold text-green-600 dark:text-green-400">{draftCorrect || '—'}</span>
+                            </p>
+                          )
+                        }
+                        if (qType === 'tu_luan') {
+                          return (
+                            <div className="text-sm text-slate-600 dark:text-slate-300">
+                              <span className="font-medium">Đáp án / Lời giải:</span>
+                              <p className="mt-1 whitespace-pre-wrap text-green-700 dark:text-green-400">{draftCorrect || '(Chưa có đáp án)'}</p>
+                            </div>
+                          )
+                        }
+                        const correctSet = qType === 'trac_nghiem_nhieu_dap_an'
+                          ? new Set((draftCorrect || '').split(',').map((s) => s.trim()))
+                          : new Set([draftCorrect])
+                        return (
+                          <>
+                            <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
+                            <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                              {['A', 'B', 'C', 'D'].map((letter) => {
+                                const text = (isEditing ? draftOpts[letter] : options[letter]) ?? '—'
+                                const isCorrect = correctSet.has(letter)
+                                return (
+                                  <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
+                                    <span className="font-medium">{letter}.</span> {text}
+                                    {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          </>
+                        )
+                      }
+
+                      const renderEditFields = () => {
+                        if (qType === 'trac_nghiem_1_dap_an') {
+                          return (
+                            <>
+                              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                {(['A', 'B', 'C', 'D'] as const).map((k) => (
+                                  <Input key={k} value={draftOpts[k] ?? ''} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, options: { ...draftOpts, [k]: e.target.value } } : prev))} placeholder={`Đáp án ${k}`} />
+                                ))}
+                              </div>
+                              <Select value={draftCorrect || undefined} onChange={(v) => setEditDraft((prev) => (prev ? { ...prev, correctAnswer: v } : prev))} options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} placeholder="Đáp án đúng" style={{ width: 120 }} />
+                            </>
+                          )
+                        }
+                        if (qType === 'trac_nghiem_nhieu_dap_an') {
+                          const vals = (draftCorrect || '').split(',').map((s) => s.trim()).filter(Boolean)
+                          return (
+                            <>
+                              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                {(['A', 'B', 'C', 'D'] as const).map((k) => (
+                                  <Input key={k} value={draftOpts[k] ?? ''} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, options: { ...draftOpts, [k]: e.target.value } } : prev))} placeholder={`Đáp án ${k}`} />
+                                ))}
+                              </div>
+                              <Select mode="multiple" value={vals} onChange={(v) => setEditDraft((prev) => (prev ? { ...prev, correctAnswer: Array.isArray(v) ? v.join(',') : v } : prev))} options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} placeholder="Đáp án đúng (nhiều)" style={{ width: '100%' }} />
+                            </>
+                          )
+                        }
+                        if (qType === 'trac_nghiem_dung_sai') {
+                          let answers: Record<string, boolean> = {}
+                          try {
+                            answers = JSON.parse(draftCorrect || '{}') as Record<string, boolean>
+                          } catch { /* ignore */ }
+                          return (
+                            <div className="space-y-2">
+                              {(['a', 'b', 'c', 'd'] as const).map((k) => (
+                                <div key={k} className="flex gap-2 items-center">
+                                  <Input className="flex-1" value={draftOpts[k] ?? ''} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, options: { ...draftOpts, [k]: e.target.value } } : prev))} placeholder={`Phát biểu ${k}`} />
+                                  <Select style={{ width: 90 }} value={answers[k]} onChange={(v) => setEditDraft((prev) => (prev ? { ...prev, correctAnswer: JSON.stringify({ ...answers, [k]: v === true }) } : prev))} options={[{ value: true, label: 'Đúng' }, { value: false, label: 'Sai' }]} />
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        }
+                        if (qType === 'trac_nghiem_tra_loi_ngan') {
+                          return (
+                            <Input type="number" step="any" value={draftCorrect} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, correctAnswer: e.target.value } : prev))} placeholder="Đáp án số" />
+                          )
+                        }
+                        if (qType === 'tu_luan') {
+                          return (
+                            <Input.TextArea rows={4} value={draftCorrect} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, correctAnswer: e.target.value } : prev))} placeholder="Đáp án / Lời giải mẫu" />
+                          )
+                        }
+                        return null
+                      }
+
                       return (
                         <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -617,14 +887,10 @@ export default function LectureExamAddQuestions() {
                             </p>
                             <div className="flex items-center gap-2">
                               {!isEditing ? (
-                                <Button size="small" onClick={() => startEdit(record)} icon={<span className="material-symbols-outlined text-base">edit</span>}>
-                                  Sửa
-                                </Button>
+                                <Button size="small" onClick={() => startEdit(record)} icon={<span className="material-symbols-outlined text-base">edit</span>}>Sửa</Button>
                               ) : (
                                 <>
-                                  <Button size="small" type="primary" onClick={saveEdit} icon={<span className="material-symbols-outlined text-base">save</span>}>
-                                    Lưu
-                                  </Button>
+                                  <Button size="small" type="primary" onClick={saveEdit} icon={<span className="material-symbols-outlined text-base">save</span>}>Lưu</Button>
                                   <Button size="small" onClick={cancelEdit}>Hủy</Button>
                                 </>
                               )}
@@ -632,80 +898,23 @@ export default function LectureExamAddQuestions() {
                           </div>
                           {isEditing && (
                             <div className="mb-3 space-y-3">
-                              <Input.TextArea
-                                rows={3}
-                                value={(draft.contentHtml ?? '') as string}
-                                onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, contentHtml: e.target.value } : prev))}
-                                placeholder="contentHtml"
-                              />
+                              <Input.TextArea rows={3} value={(draft.contentHtml ?? '') as string} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, contentHtml: e.target.value } : prev))} placeholder="Nội dung câu hỏi" />
+                              {renderEditFields()}
                               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                {(['A', 'B', 'C', 'D'] as const).map((k) => (
-                                  <Input
-                                    key={k}
-                                    value={((draft.options ?? {}) as Record<string, string>)[k] ?? ''}
-                                    onChange={(e) =>
-                                      setEditDraft((prev) => {
-                                        if (!prev) return prev
-                                        const nextOpt = { ...((prev.options ?? {}) as Record<string, string>), [k]: e.target.value }
-                                        return { ...prev, options: nextOpt }
-                                      })
-                                    }
-                                    placeholder={`Đáp án ${k}`}
-                                  />
-                                ))}
+                                <Select value={((draft as { bloomLevel?: string }).bloomLevel ?? '') as string} onChange={(v) => setEditDraft((prev) => (prev ? { ...prev, bloomLevel: v } : prev))} options={BLOOM_LEVEL_OPTIONS} placeholder="Bloom" />
+                                <Input value={(draft.topic as string) ?? ''} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, topic: e.target.value } : prev))} placeholder="Topic" />
                               </div>
-                              <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                                <Select
-                                  value={((draft as { correctAnswer?: string }).correctAnswer ?? '') as string}
-                                  onChange={(v) => setEditDraft((prev) => (prev ? { ...prev, correctAnswer: v } : prev))}
-                                  options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]}
-                                  placeholder="Đáp án đúng"
-                                />
-                                <Select
-                                  value={((draft as { bloomLevel?: string }).bloomLevel ?? '') as string}
-                                  onChange={(v) => setEditDraft((prev) => (prev ? { ...prev, bloomLevel: v } : prev))}
-                                  options={BLOOM_LEVEL_OPTIONS}
-                                  placeholder="Bloom"
-                                />
-                                <Input
-                                  value={(draft.topic as string) ?? ''}
-                                  onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, topic: e.target.value } : prev))}
-                                  placeholder="Topic"
-                                />
-                              </div>
-                              <Input.TextArea
-                                rows={2}
-                                value={((draft as { explanationHtml?: string }).explanationHtml ?? '') as string}
-                                onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, explanationHtml: e.target.value } : prev))}
-                                placeholder="explanationHtml (HTML)"
-                              />
+                              <Input.TextArea rows={2} value={((draft as { explanationHtml?: string }).explanationHtml ?? '') as string} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, explanationHtml: e.target.value } : prev))} placeholder="Giải thích" />
                             </div>
                           )}
-                          <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
-                          <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                            {letters.map((letter) => {
-                              const text = (isEditing ? (((draft.options ?? {}) as Record<string, string>)[letter] ?? '—') : (options[letter] ?? '—'))
-                              const isCorrect = (isEditing ? ((draft as { correctAnswer?: string }).correctAnswer === letter) : (correct === letter))
-                              return (
-                                <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
-                                  <span className="font-medium">{letter}.</span> {text}
-                                  {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
-                                </li>
-                              )
-                            })}
-                          </ul>
+                          {!isEditing && renderOptionsList()}
                           <p className="mt-2 text-xs text-slate-500">
                             Bloom: {(draft.bloomLevel ?? (draft as { bloom_level?: string }).bloom_level) ?? '—'} · Topic: {formatTopic(draft.topic as string)}
                           </p>
                           {(draft.explanationHtml ?? (draft as { explanation_html?: string }).explanation_html) ? (
                             <div className="mt-3 rounded border border-slate-200 bg-white p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                Lời giải
-                              </p>
-                              <div
-                                className="prose prose-sm max-w-none dark:prose-invert"
-                                dangerouslySetInnerHTML={{ __html: ((draft.explanationHtml ?? (draft as { explanation_html?: string }).explanation_html) as string) }}
-                              />
+                              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Lời giải</p>
+                              <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: ((draft.explanationHtml ?? (draft as { explanation_html?: string }).explanation_html) as string) }} />
                             </div>
                           ) : null}
                         </div>
@@ -743,7 +952,7 @@ export default function LectureExamAddQuestions() {
                   columns={[
                     { title: 'STT', key: 'stt', width: 60, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
                     { title: 'Nội dung', key: 'content', ellipsis: true, render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
-                    { title: 'Đáp án đúng', key: 'correct', width: 100, render: (_: unknown, r: ExamQuestion) => (r.correctAnswer ?? r.correct_answer) ?? '—' },
+                    { title: 'Đáp án đúng', key: 'correct', width: 140, render: (_: unknown, r: ExamQuestion) => formatCorrectAnswer((r.correctAnswer ?? r.correct_answer) as string, (r as { questionType?: string; question_type?: string }).questionType ?? (r as { question_type?: string }).question_type) },
                     { title: 'Bloom', key: 'bloom', width: 100, render: (_: unknown, r: ExamQuestion) => (r.bloomLevel ?? r.bloom_level) ?? '—' },
                     { title: 'Topic', key: 'topic', width: 120, render: (_: unknown, r: ExamQuestion) => formatTopic(r.topic as string) },
                   ]}
@@ -924,6 +1133,92 @@ export default function LectureExamAddQuestions() {
                 const draft = isEditing ? (aiGenPreviewDraft as ExamQuestion) : record
                 const options = (draft.options ?? {}) as Record<string, string>
                 const correct = (draft.correctAnswer ?? (draft as { correct_answer?: string }).correct_answer) as string
+                const qType = ((draft as { questionType?: string; question_type?: string }).questionType ?? (draft as { question_type?: string }).question_type ?? 'trac_nghiem_1_dap_an') as string
+
+                const renderOptionsSection = () => {
+                  if (qType === 'trac_nghiem_dung_sai') {
+                    let answers: Record<string, boolean> = {}
+                    try {
+                      answers = JSON.parse(correct || '{}') as Record<string, boolean>
+                    } catch { /* ignore */ }
+                    return (
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        {['a', 'b', 'c', 'd'].map((k) => (
+                          <div key={k} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/30">
+                            <div className="mb-1 text-xs font-semibold text-slate-500">{k})</div>
+                            {isEditing ? (
+                              <div className="flex gap-2">
+                                <Input className="flex-1" value={options[k] ?? ''} onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), options: { ...((d?.options ?? {}) as Record<string, string>), [k]: e.target.value } }))} />
+                                <Select style={{ width: 90 }} value={answers[k]} onChange={(v) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), correctAnswer: JSON.stringify({ ...answers, [k]: v === true }) }))} options={[{ value: true, label: 'Đúng' }, { value: false, label: 'Sai' }]} />
+                              </div>
+                            ) : (
+                              <div className={answers[k] ? 'font-semibold text-green-600 dark:text-green-400' : 'text-slate-700 dark:text-slate-200'}>
+                                {options[k] ?? '—'} — {answers[k] ? 'Đúng' : 'Sai'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  }
+                  if (qType === 'trac_nghiem_tra_loi_ngan') {
+                    return (
+                      <div>
+                        <div className="mb-1 text-xs font-semibold text-slate-500">Đáp án (số)</div>
+                        {isEditing ? (
+                          <Input type="number" step="any" value={correct} onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), correctAnswer: e.target.value }))} placeholder="VD: 42.5" />
+                        ) : (
+                          <div className="font-semibold text-green-600 dark:text-green-400">{correct || '—'}</div>
+                        )}
+                      </div>
+                    )
+                  }
+                  if (qType === 'tu_luan') {
+                    return (
+                      <div>
+                        <div className="mb-1 text-xs font-semibold text-slate-500">Đáp án / Lời giải</div>
+                        {isEditing ? (
+                          <Input.TextArea rows={4} value={correct} onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), correctAnswer: e.target.value }))} placeholder="Nhập đáp án hoặc lời giải mẫu..." />
+                        ) : (
+                          <div className="whitespace-pre-wrap text-green-700 dark:text-green-400">{correct || '(Chưa có đáp án)'}</div>
+                        )}
+                      </div>
+                    )
+                  }
+                  const correctSet = qType === 'trac_nghiem_nhieu_dap_an' ? new Set((correct || '').split(',').map((s) => s.trim())) : new Set([correct])
+                  return (
+                    <>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        {['A', 'B', 'C', 'D'].map((k) => (
+                          <div key={k} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/30">
+                            <div className="mb-1 text-xs font-semibold text-slate-500">{k}</div>
+                            {isEditing ? (
+                              <Input value={options[k] ?? ''} onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), options: { ...((d?.options ?? {}) as Record<string, string>), [k]: e.target.value } }))} />
+                            ) : (
+                              <div className={correctSet.has(k) ? 'font-semibold text-green-600 dark:text-green-400' : 'text-slate-700 dark:text-slate-200'}>
+                                {options[k] ?? '—'}
+                                {correctSet.has(k) && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3">
+                        <div className="mb-1 text-xs font-semibold text-slate-500">Đáp án đúng</div>
+                        {isEditing ? (
+                          qType === 'trac_nghiem_nhieu_dap_an' ? (
+                            <Select mode="multiple" value={(correct || '').split(',').map((s) => s.trim()).filter(Boolean)} onChange={(v) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), correctAnswer: Array.isArray(v) ? v.join(',') : v }))} options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} style={{ width: 200 }} />
+                          ) : (
+                            <Select value={correct || undefined} onChange={(v) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), correctAnswer: v }))} options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} style={{ width: 120 }} />
+                          )
+                        ) : (
+                          <div className="text-slate-700 dark:text-slate-200">{formatCorrectAnswer(correct, qType)}</div>
+                        )}
+                      </div>
+                    </>
+                  )
+                }
+
                 return (
                   <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -933,101 +1228,32 @@ export default function LectureExamAddQuestions() {
                       <div className="flex items-center gap-2">
                         {isEditing ? (
                           <>
-                            <Button size="small" onClick={cancelEditAiPreview}>
-                              Hủy
-                            </Button>
-                            <Button size="small" type="primary" onClick={saveEditAiPreview}>
-                              Lưu
-                            </Button>
+                            <Button size="small" onClick={cancelEditAiPreview}>Hủy</Button>
+                            <Button size="small" type="primary" onClick={saveEditAiPreview}>Lưu</Button>
                           </>
                         ) : (
                           <>
-                            <Button
-                              size="small"
-                              onClick={() => startEditAiPreview(record, key)}
-                              icon={<span className="material-symbols-outlined text-lg">edit</span>}
-                            >
-                              Sửa
-                            </Button>
-                            <Button
-                              size="small"
-                              danger
-                              onClick={() => {
-                                cancelEditAiPreview()
-                                setAiGenPreviewQuestions((prev) => prev.filter((_, i) => i !== index))
-                              }}
-                              icon={<span className="material-symbols-outlined text-lg">delete</span>}
-                            >
-                              Xóa
-                            </Button>
+                            <Button size="small" onClick={() => startEditAiPreview(record, key)} icon={<span className="material-symbols-outlined text-lg">edit</span>}>Sửa</Button>
+                            <Button size="small" danger onClick={() => { cancelEditAiPreview(); setAiGenPreviewQuestions((prev) => prev.filter((_, i) => i !== index)) }} icon={<span className="material-symbols-outlined text-lg">delete</span>}>Xóa</Button>
                           </>
                         )}
                       </div>
                     </div>
-
                     <div className="mb-3">
                       {isEditing ? (
-                        <Input.TextArea
-                          rows={3}
-                          value={(draft.contentHtml ?? '') as string}
-                          onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), contentHtml: e.target.value }))}
-                        />
+                        <Input.TextArea rows={3} value={(draft.contentHtml ?? '') as string} onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), contentHtml: e.target.value }))} />
                       ) : (
                         <div className="font-medium text-slate-800 dark:text-slate-200">{stripHtmlFull((record.contentHtml ?? record.content_html) as string)}</div>
                       )}
                     </div>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                      {['A', 'B', 'C', 'D'].map((k) => (
-                        <div key={k} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/30">
-                          <div className="mb-1 text-xs font-semibold text-slate-500">{k}</div>
-                          {isEditing ? (
-                            <Input
-                              value={options[k] ?? ''}
-                              onChange={(e) =>
-                                setAiGenPreviewDraft((d) => ({
-                                  ...(d ?? {}),
-                                  options: { ...(((d?.options ?? {}) as Record<string, string>) ?? {}), [k]: e.target.value },
-                                }))
-                              }
-                            />
-                          ) : (
-                            <div className={correct === k ? 'font-semibold text-green-600 dark:text-green-400' : 'text-slate-700 dark:text-slate-200'}>
-                              {options[k] ?? '—'}
-                              {correct === k && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <div>
-                        <div className="mb-1 text-xs font-semibold text-slate-500">Đáp án đúng</div>
-                        {isEditing ? (
-                          <Select
-                            value={(draft.correctAnswer ?? '') as string}
-                            onChange={(v) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), correctAnswer: v }))}
-                            options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]}
-                          />
-                        ) : (
-                          <div className="text-slate-700 dark:text-slate-200">{correct || '—'}</div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="mb-1 text-xs font-semibold text-slate-500">Giải thích</div>
-                        {isEditing ? (
-                          <Input.TextArea
-                            rows={2}
-                            value={(draft.explanationHtml ?? '') as string}
-                            onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), explanationHtml: e.target.value }))}
-                          />
-                        ) : (
-                          <div className="text-slate-700 dark:text-slate-200">
-                            {stripHtmlFull((record.explanationHtml ?? record.explanation_html) as string) || '—'}
-                          </div>
-                        )}
-                      </div>
+                    {renderOptionsSection()}
+                    <div className="mt-3">
+                      <div className="mb-1 text-xs font-semibold text-slate-500">Giải thích</div>
+                      {isEditing ? (
+                        <Input.TextArea rows={2} value={(draft.explanationHtml ?? '') as string} onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), explanationHtml: e.target.value }))} />
+                      ) : (
+                        <div className="text-slate-700 dark:text-slate-200">{stripHtmlFull((record.explanationHtml ?? record.explanation_html) as string) || '—'}</div>
+                      )}
                     </div>
                   </div>
                 )
@@ -1036,7 +1262,7 @@ export default function LectureExamAddQuestions() {
             columns={[
               { title: 'STT', key: 'stt', width: 60, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
               { title: 'Nội dung', key: 'content', ellipsis: true, render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
-              { title: 'Đáp án đúng', key: 'correct', width: 110, render: (_: unknown, r: ExamQuestion) => (r.correctAnswer ?? r.correct_answer) ?? '—' },
+              { title: 'Đáp án đúng', key: 'correct', width: 140, render: (_: unknown, r: ExamQuestion) => formatCorrectAnswer((r.correctAnswer ?? r.correct_answer) as string, (r as { questionType?: string; question_type?: string }).questionType ?? (r as { question_type?: string }).question_type) },
               { title: 'Mức độ khó', key: 'bloom', width: 120, render: (_: unknown, r: ExamQuestion) => (r.bloomLevel ?? r.bloom_level) ?? '—' },
               { title: 'Topic', key: 'topic', width: 160, render: (_: unknown, r: ExamQuestion) => topicLabelVi(r.topic as string) },
             ]}
@@ -1045,27 +1271,60 @@ export default function LectureExamAddQuestions() {
       </Modal>
 
       {/* Modal Thêm câu hỏi thủ công */}
-      <Modal title="Thêm câu hỏi mới" open={addModalOpen} onCancel={() => { setAddModalOpen(false); form.resetFields() }} footer={null} width={640} destroyOnHidden>
+      <Modal title="Thêm câu hỏi mới" open={addModalOpen} onCancel={() => { setAddModalOpen(false); form.resetFields() }} footer={null} width={720} destroyOnHidden>
         <Form
           form={form}
           layout="vertical"
+          initialValues={{ questionType: 'trac_nghiem_1_dap_an' }}
           onFinish={(values) => {
             if (!examIdNum) return
             setAddLoading(true)
-            const body = {
-              content_html: values.contentHtml ?? '',
-              options: {
+            const qType = values.questionType ?? 'trac_nghiem_1_dap_an'
+            let options: Record<string, string> | null = null
+            let correctAnswer = ''
+
+            if (qType === 'trac_nghiem_1_dap_an' || qType === 'trac_nghiem_nhieu_dap_an') {
+              options = {
                 A: values.option_A ?? '',
                 B: values.option_B ?? '',
                 C: values.option_C ?? '',
                 D: values.option_D ?? '',
-              },
-              question_type: 'trac_nghiem',
+              }
+              correctAnswer = qType === 'trac_nghiem_nhieu_dap_an'
+                ? (values.correctAnswers ?? []).join(',')
+                : (values.correctAnswer ?? '')
+            } else if (qType === 'trac_nghiem_dung_sai') {
+              options = {
+                a: values.statement_a ?? '',
+                b: values.statement_b ?? '',
+                c: values.statement_c ?? '',
+                d: values.statement_d ?? '',
+              }
+              correctAnswer = JSON.stringify({
+                a: values.answer_a === true,
+                b: values.answer_b === true,
+                c: values.answer_c === true,
+                d: values.answer_d === true,
+              })
+            } else if (qType === 'trac_nghiem_tra_loi_ngan') {
+              correctAnswer = String(values.correctAnswerNumber ?? '')
+            } else if (qType === 'tu_luan') {
+              correctAnswer = values.correctAnswerText ?? ''
+            }
+
+            const body: AddQuestionToExamBody = {
+              content_html: values.contentHtml ?? '',
+              options,
+              question_type: qType,
               topic: values.topic ?? '',
               bloom_level: values.bloomLevel ?? '',
-              correct_answer: values.correctAnswer ?? '',
+              correct_answer: correctAnswer,
               explanation_html: values.explanationHtml ?? '',
             }
+            if (qType === 'trac_nghiem_tra_loi_ngan') {
+              body.rounding_rule = values.roundingRule ?? '1_decimal'
+            }
+
             addQuestionToExam(examIdNum, body)
               .then(() => {
                 message.success('Đã thêm câu hỏi vào đề.')
@@ -1077,29 +1336,99 @@ export default function LectureExamAddQuestions() {
               .finally(() => setAddLoading(false))
           }}
         >
+          <Form.Item name="questionType" label="Loại câu hỏi" rules={[{ required: true }]}>
+            <Select options={QUESTION_TYPE_OPTIONS} placeholder="Chọn loại câu hỏi" />
+          </Form.Item>
           <Form.Item name="contentHtml" label="Nội dung câu hỏi *" rules={[{ required: true, message: 'Nhập nội dung câu hỏi' }]}>
             <Input.TextArea rows={4} placeholder="Nhập nội dung câu hỏi tại đây..." />
           </Form.Item>
-          <Form.Item label="Danh sách đáp án">
-            {['A', 'B', 'C', 'D'].map((letter) => (
-              <Form.Item key={letter} name={`option_${letter}`} noStyle>
-                <Input placeholder={`Nhập đáp án ${letter}`} className="mb-2" />
-              </Form.Item>
-            ))}
+
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.questionType !== curr.questionType}>
+            {({ getFieldValue }) => {
+              const qType = getFieldValue('questionType')
+              if (qType === 'trac_nghiem_1_dap_an') {
+                return (
+                  <>
+                    <Form.Item label="Đáp án A, B, C, D">
+                      {['A', 'B', 'C', 'D'].map((letter) => (
+                        <Form.Item key={letter} name={`option_${letter}`} noStyle>
+                          <Input placeholder={`Đáp án ${letter}`} className="mb-2" />
+                        </Form.Item>
+                      ))}
+                    </Form.Item>
+                    <Form.Item name="correctAnswer" label="Đáp án đúng" rules={[{ required: true }]}>
+                      <Select placeholder="Chọn 1 đáp án" options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} />
+                    </Form.Item>
+                  </>
+                )
+              }
+              if (qType === 'trac_nghiem_nhieu_dap_an') {
+                return (
+                  <>
+                    <Form.Item label="Đáp án A, B, C, D">
+                      {['A', 'B', 'C', 'D'].map((letter) => (
+                        <Form.Item key={letter} name={`option_${letter}`} noStyle>
+                          <Input placeholder={`Đáp án ${letter}`} className="mb-2" />
+                        </Form.Item>
+                      ))}
+                    </Form.Item>
+                    <Form.Item name="correctAnswers" label="Đáp án đúng (chọn nhiều)" rules={[{ required: true, message: 'Chọn ít nhất 1 đáp án' }]}>
+                      <Select mode="multiple" placeholder="Chọn các đáp án đúng" options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} />
+                    </Form.Item>
+                  </>
+                )
+              }
+              if (qType === 'trac_nghiem_dung_sai') {
+                return (
+                  <>
+                    <Form.Item label="4 phát biểu (a, b, c, d)">
+                      {(['a', 'b', 'c', 'd'] as const).map((letter) => (
+                        <div key={letter} className="mb-3 flex gap-2">
+                          <Form.Item name={`statement_${letter}`} noStyle className="flex-1">
+                            <Input placeholder={`Phát biểu ${letter}`} />
+                          </Form.Item>
+                          <Form.Item name={`answer_${letter}`} noStyle>
+                            <Select style={{ width: 100 }} placeholder="Đ/S" options={[{ value: true, label: 'Đúng' }, { value: false, label: 'Sai' }]} />
+                          </Form.Item>
+                        </div>
+                      ))}
+                    </Form.Item>
+                  </>
+                )
+              }
+              if (qType === 'trac_nghiem_tra_loi_ngan') {
+                return (
+                  <>
+                    <Form.Item name="correctAnswerNumber" label="Đáp án (số)" rules={[{ required: true, message: 'Nhập đáp án số' }]}>
+                      <Input type="number" step="any" placeholder="VD: 42.5" />
+                    </Form.Item>
+                    <Form.Item name="roundingRule" label="Quy tắc làm tròn">
+                      <Select options={ROUNDING_OPTIONS} placeholder="Chọn quy tắc" />
+                    </Form.Item>
+                  </>
+                )
+              }
+              if (qType === 'tu_luan') {
+                return (
+                  <Form.Item name="correctAnswerText" label="Đáp án / Lời giải mẫu">
+                    <Input.TextArea rows={4} placeholder="Nhập đáp án hoặc lời giải mẫu chi tiết..." />
+                  </Form.Item>
+                )
+              }
+              return null
+            }}
           </Form.Item>
-          <div className="grid grid-cols-3 gap-4">
-            <Form.Item name="correctAnswer" label="Đáp án đúng" rules={[{ required: true }]}>
-              <Select placeholder="Chọn đáp án" options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} />
-            </Form.Item>
-            <Form.Item name="bloomLevel" label="Bloom level" rules={[{ required: true }]}>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item name="bloomLevel" label="Mức độ Bloom" rules={[{ required: true }]}>
               <Select placeholder="Chọn cấp độ" options={BLOOM_LEVEL_OPTIONS} />
             </Form.Item>
-            <Form.Item name="topic" label="Topic" rules={[{ required: true }]}>
-              <Select placeholder="Chọn chủ đề" options={[{ value: 'dao_dong_co', label: 'Dao động cơ' }, { value: 'dien_xoay_chieu', label: 'Điện xoay chiều' }]} />
+            <Form.Item name="topic" label="Chủ đề" rules={[{ required: true }]}>
+              <Select placeholder="Chọn chủ đề" options={[{ value: 'dao_dong_co', label: 'Dao động cơ' }, { value: 'song_co', label: 'Sóng cơ' }, { value: 'dien_xoay_chieu', label: 'Điện xoay chiều' }, { value: 'song_anh_sang', label: 'Sóng ánh sáng' }, { value: 'luong_tu_anh_sang', label: 'Lượng tử ánh sáng' }, { value: 'vat_ly_hat_nhan', label: 'Vật lý hạt nhân' }]} />
             </Form.Item>
           </div>
           <Form.Item name="explanationHtml" label="Giải thích (tùy chọn)">
-            <Input.TextArea rows={2} placeholder="Giải thích đáp án..." />
+            <Input.TextArea rows={2} placeholder="Lời giải chi tiết..." />
           </Form.Item>
           <div className="mt-6 flex justify-end gap-2">
             <Button onClick={() => { setAddModalOpen(false); form.resetFields() }}>Hủy</Button>

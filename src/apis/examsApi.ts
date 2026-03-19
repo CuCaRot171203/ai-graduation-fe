@@ -219,12 +219,13 @@ export async function downloadExcelTemplate(templateId: string): Promise<void> {
 
 export type AddQuestionToExamBody = {
   content_html: string
-  options: Record<string, string>
+  options?: Record<string, string> | null
   question_type: string
   topic: string
   bloom_level: string
   correct_answer: string
   explanation_html?: string
+  rounding_rule?: string
 }
 
 export type ExamQuestion = {
@@ -239,6 +240,9 @@ export type ExamQuestion = {
   correct_answer?: string
   explanationHtml?: string
   explanation_html?: string
+  questionType?: string
+  question_type?: string
+  rounding_rule?: string
   order_number?: number
   approved?: boolean
   [key: string]: unknown
