@@ -4,6 +4,7 @@ import { Button, Checkbox, Dropdown, Form, Input, Modal, Select, Table, Upload, 
 import type { UploadFile } from 'antd'
 import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
+import { LatexMixed, LatexParagraphs, ocrPlainText } from '../../components/LatexMixed'
 import {
   getExcelTemplates,
   downloadExcelTemplate,
@@ -545,7 +546,7 @@ export default function LectureExamAddQuestions() {
                         setExpandedOcrKeys((prev) => (expanded ? [...prev, key] : prev.filter((k) => k !== key)))
                       },
                       expandedRowRender: (record: ExamQuestion) => {
-                        const content = stripHtmlFull((record.contentHtml ?? record.content_html) as string)
+                        const contentRaw = ocrPlainText((record.contentHtml ?? record.content_html) as string)
                         const options = (record.options ?? {}) as Record<string, string>
                         const correct = (record.correct_answer ?? record.correctAnswer) as string
                         const qType = ((record as { questionType?: string; question_type?: string }).questionType ?? (record as { question_type?: string }).question_type ?? 'trac_nghiem_1_dap_an') as string
@@ -561,13 +562,17 @@ export default function LectureExamAddQuestions() {
                           }
                           return (
                             <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
-                              <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
+                              <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                                <LatexParagraphs text={contentRaw} />
+                              </div>
                               <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các phát biểu (chọn Đúng/Sai):</p>
                               <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                                 {['a', 'b', 'c', 'd'].map((k) => (
                                   <li key={k} className="flex items-center gap-2">
                                     <span className="font-medium w-5">{k}).</span>
-                                    <span className="flex-1">{options[k] ?? '—'}</span>
+                                    <span className="flex-1">
+                                      <LatexMixed text={ocrPlainText(options[k])} />
+                                    </span>
                                     <Select
                                       size="small"
                                       style={{ width: 90 }}
@@ -584,18 +589,29 @@ export default function LectureExamAddQuestions() {
                         if (qType === 'trac_nghiem_tra_loi_ngan') {
                           return (
                             <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
-                              <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
-                              <p className="text-sm text-slate-600 dark:text-slate-300">Đáp án: <span className="font-semibold text-green-600 dark:text-green-400">{correct || '—'}</span></p>
+                              <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                                <LatexParagraphs text={contentRaw} />
+                              </div>
+                              <p className="text-sm text-slate-600 dark:text-slate-300">
+                                Đáp án:{' '}
+                                <span className="font-semibold text-green-600 dark:text-green-400">
+                                  <LatexMixed text={String(correct || '—')} />
+                                </span>
+                              </p>
                             </div>
                           )
                         }
                         if (qType === 'tu_luan') {
                           return (
                             <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
-                              <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
+                              <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                                <LatexParagraphs text={contentRaw} />
+                              </div>
                               <div className="text-sm text-slate-600 dark:text-slate-300">
                                 <span className="font-medium">Đáp án / Lời giải:</span>
-                                <p className="mt-1 whitespace-pre-wrap text-green-700 dark:text-green-400">{correct || '(Chưa có đáp án)'}</p>
+                                <div className="mt-1 text-green-700 dark:text-green-400">
+                                  <LatexParagraphs text={correct || '(Chưa có đáp án)'} />
+                                </div>
                               </div>
                             </div>
                           )
@@ -603,15 +619,18 @@ export default function LectureExamAddQuestions() {
                         const correctSet = qType === 'trac_nghiem_nhieu_dap_an' ? new Set((correct || '').split(',').map((s) => s.trim())) : new Set([correct])
                         return (
                           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
-                            <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{content}</p>
+                            <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                              <LatexParagraphs text={contentRaw} />
+                            </div>
                             <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
                             <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
                               {['A', 'B', 'C', 'D'].map((letter) => {
-                                const text = options[letter] ?? '—'
+                                const optText = options[letter] ?? '—'
                                 const isCorrect = correctSet.has(letter)
                                 return (
                                   <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
-                                    <span className="font-medium">{letter}.</span> {text}
+                                    <span className="font-medium">{letter}.</span>{' '}
+                                    <LatexMixed text={ocrPlainText(optText)} />
                                     {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
                                   </li>
                                 )
@@ -629,7 +648,16 @@ export default function LectureExamAddQuestions() {
                     })}
                     columns={[
                       { title: 'STT', key: 'stt', width: 56, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
-                      { title: 'Nội dung', key: 'content', ellipsis: true, render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
+                      {
+                        title: 'Nội dung',
+                        key: 'content',
+                        ellipsis: true,
+                        render: (_: unknown, r: ExamQuestion) => (
+                          <div className="max-h-[5rem] overflow-hidden text-sm leading-snug">
+                            <LatexParagraphs text={ocrPlainText((r.contentHtml ?? r.content_html) as string)} />
+                          </div>
+                        ),
+                      },
                       {
                         title: 'Đáp án đúng',
                         key: 'correct',

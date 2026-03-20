@@ -363,9 +363,16 @@ export async function importExamQuestionsFromOcr(
     headers,
     body: form,
   })
-  const json = await res.json()
+  let json: { status?: string; message?: string; data?: unknown } = {}
+  try {
+    json = await res.json()
+  } catch {
+    /* Render/HTML error body */
+  }
   checkUnauthorized(res)
-  if (!res.ok) throw new Error(json?.message ?? 'Quét ảnh AI thất bại')
+  if (!res.ok) {
+    throw new Error(json?.message ?? (res.status === 500 ? 'Lỗi máy chủ khi OCR (PDF/ảnh)' : 'Quét AI thất bại'))
+  }
   return json as OcrExtractResponse
 }
 
