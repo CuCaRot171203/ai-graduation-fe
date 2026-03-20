@@ -371,7 +371,10 @@ export async function importExamQuestionsFromOcr(
   }
   checkUnauthorized(res)
   if (!res.ok) {
-    throw new Error(json?.message ?? (res.status === 500 ? 'Lỗi máy chủ khi OCR (PDF/ảnh)' : 'Quét AI thất bại'))
+    throw new Error(
+      json?.message ??
+        (res.status === 500 ? 'Lỗi máy chủ khi OCR (PDF, Word, ảnh)' : 'Trích xuất câu hỏi (OCR) thất bại')
+    )
   }
   return json as OcrExtractResponse
 }

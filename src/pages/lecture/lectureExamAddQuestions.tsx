@@ -105,6 +105,11 @@ function formatCorrectAnswer(correct: string | undefined, questionType: string |
   return correct
 }
 
+function isWordImportFile(file: File | undefined | null): boolean {
+  const n = file?.name?.toLowerCase() ?? ''
+  return n.endsWith('.doc') || n.endsWith('.docx')
+}
+
 export default function LectureExamAddQuestions() {
   const { examId } = useParams<{ examId: string }>()
   const navigate = useNavigate()
@@ -134,6 +139,9 @@ export default function LectureExamAddQuestions() {
   const dragIndexRef = useRef<number | null>(null)
   const [reordered, setReordered] = useState(false)
   const [examSubjectId, setExamSubjectId] = useState<number | null>(null)
+
+  const importPickedFile = excelFileList[0]?.originFileObj as File | undefined
+  const importModalIsWord = isWordImportFile(importPickedFile)
 
   const [aiGenModalOpen, setAiGenModalOpen] = useState(false)
   const [aiGenLoading, setAiGenLoading] = useState(false)
@@ -478,7 +486,7 @@ export default function LectureExamAddQuestions() {
               Thêm hàng loạt câu hỏi
             </h2>
             <p className="mb-8 text-slate-500 dark:text-slate-400">
-              Chọn một trong ba phương thức bên dưới để thêm câu hỏi vào đề thi.
+              Chọn một trong các phương thức bên dưới để thêm câu hỏi vào đề thi.
             </p>
 
             <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-4">
@@ -497,8 +505,10 @@ export default function LectureExamAddQuestions() {
                 className="flex flex-col items-center rounded-2xl border-2 border-primary/30 bg-primary/5 p-8 text-center transition-all hover:border-primary hover:bg-primary/10 dark:border-primary/40 dark:bg-primary/10 dark:hover:bg-primary/20"
               >
                 <span className="material-symbols-outlined mb-4 text-5xl text-primary">upload_file</span>
-                <span className="text-lg font-bold text-slate-900 dark:text-white">Import câu hỏi từ Excel</span>
-                <span className="mt-2 text-sm text-slate-500 dark:text-slate-400">.xlsx, .xls, .csv — tối đa 10MB</span>
+                <span className="text-lg font-bold text-slate-900 dark:text-white">Import câu hỏi từ Excel, Word</span>
+                <span className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  .xlsx, .xls, .csv, .doc, .docx — tối đa 10MB
+                </span>
               </button>
               <button
                 type="button"
@@ -1465,58 +1475,115 @@ export default function LectureExamAddQuestions() {
         </Form>
       </Modal>
 
-      {/* Modal Import Excel - API trả về { data: { imported, errors, templateUsed } } */}
+      {/* Modal Import Excel / Word — Excel: import API; Word: OCR → bảng chờ duyệt */}
       <Modal
-        title="Tải tập tin lên"
+        title="Import câu hỏi từ Excel, Word"
         open={importModalOpen}
-        onCancel={() => { setImportModalOpen(false); setExcelFileList([]) }}
+        onCancel={() => {
+          setImportModalOpen(false)
+          setExcelFileList([])
+          setSelectedTemplateId('')
+        }}
         footer={null}
         width={520}
         destroyOnHidden
       >
-        <p className="mb-4 text-sm text-slate-500">Hỗ trợ .xls, .xlsx, .csv. Vui lòng sử dụng file mẫu để tránh lỗi định dạng.</p>
-        <div className="mb-4">
-          <span className="mb-2 block text-sm font-medium">Chọn template</span>
-          <Select
-            className="w-full"
-            placeholder="Chọn template"
-            value={selectedTemplateId || undefined}
-            onChange={setSelectedTemplateId}
-            options={excelTemplates.map((t) => ({ value: t.id, label: t.name }))}
-          />
-        </div>
-        <Upload.Dragger accept=".xlsx,.xls,.csv" fileList={excelFileList} maxCount={1} beforeUpload={() => false} onChange={({ fileList }) => setExcelFileList(fileList)}>
-          <p className="py-8"><span className="material-symbols-outlined text-5xl text-primary">upload_file</span></p>
-          <p className="text-sm font-medium">Kéo file Excel vào đây hoặc chọn file</p>
-          <p className="mt-1 text-xs text-slate-500">Dung lượng tối đa 10MB</p>
+        <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+          <strong>Excel</strong> (.xls, .xlsx, .csv): chọn template và dùng file mẫu.{' '}
+          <strong>Word</strong> (.doc, .docx): AI trích câu hỏi — kết quả hiện ở mục &quot;Câu hỏi chờ duyệt (OCR)&quot; bên dưới, sau đó lưu vào đề.
+        </p>
+        {!importModalIsWord && (
+          <div className="mb-4">
+            <span className="mb-2 block text-sm font-medium">Chọn template (Excel / CSV)</span>
+            <Select
+              className="w-full"
+              placeholder="Chọn template"
+              value={selectedTemplateId || undefined}
+              onChange={setSelectedTemplateId}
+              options={excelTemplates.map((t) => ({ value: t.id, label: t.name }))}
+            />
+          </div>
+        )}
+        {importModalIsWord && (
+          <p className="mb-4 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+            File Word: không cần template. Bấm &quot;Trích xuất câu hỏi&quot; để AI đọc nội dung và đưa xuống bảng duyệt.
+          </p>
+        )}
+        <Upload.Dragger
+          accept=".xlsx,.xls,.csv,.doc,.docx"
+          fileList={excelFileList}
+          maxCount={1}
+          beforeUpload={() => false}
+          onChange={({ fileList }) => setExcelFileList(fileList)}
+        >
+          <p className="py-8">
+            <span className="material-symbols-outlined text-5xl text-primary">upload_file</span>
+          </p>
+          <p className="text-sm font-medium">Kéo file vào đây hoặc chọn file</p>
+          <p className="mt-1 text-xs text-slate-500">Excel, CSV hoặc Word — tối đa 10MB</p>
         </Upload.Dragger>
-        <div className="mt-6 flex items-center justify-between">
-          <Dropdown
-            menu={{
-              items: excelTemplates.length
-                ? excelTemplates.map((t) => ({ key: t.id, label: t.name, onClick: () => handleDownloadSample(t.id) }))
-                : [{ key: 'load', label: 'Đang tải...', disabled: true }],
-            }}
-            trigger={['click']}
-          >
-            <Button icon={<span className="material-symbols-outlined">download</span>}>Tải file Excel mẫu</Button>
-          </Dropdown>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+          {!importModalIsWord ? (
+            <Dropdown
+              menu={{
+                items: excelTemplates.length
+                  ? excelTemplates.map((t) => ({ key: t.id, label: t.name, onClick: () => handleDownloadSample(t.id) }))
+                  : [{ key: 'load', label: 'Đang tải...', disabled: true }],
+              }}
+              trigger={['click']}
+            >
+              <Button icon={<span className="material-symbols-outlined">download</span>}>Tải file Excel mẫu</Button>
+            </Dropdown>
+          ) : (
+            <span />
+          )}
           <div className="flex gap-2">
-            <Button onClick={() => { setImportModalOpen(false); setExcelFileList([]) }}>Hủy</Button>
+            <Button
+              onClick={() => {
+                setImportModalOpen(false)
+                setExcelFileList([])
+                setSelectedTemplateId('')
+              }}
+            >
+              Hủy
+            </Button>
             <Button
               type="primary"
               loading={importLoading}
-              disabled={excelFileList.length === 0 || !selectedTemplateId}
+              disabled={!importPickedFile || (!importModalIsWord && !selectedTemplateId)}
               onClick={() => {
-                const file = excelFileList[0]?.originFileObj
-                if (!file || !examIdNum || !selectedTemplateId) return
+                const file = excelFileList[0]?.originFileObj as File | undefined
+                if (!file || !examIdNum) return
+                if (importModalIsWord) {
+                  setImportLoading(true)
+                  importExamQuestionsFromOcr(examIdNum, [file])
+                    .then((res) => {
+                      const list = res.data?.questions ?? []
+                      setOcrPending({ sessionId: res.data.sessionId, questions: list })
+                      setImportModalOpen(false)
+                      setExcelFileList([])
+                      setSelectedTemplateId('')
+                      if (list.length > 0) {
+                        message.success(
+                          res.message ?? `Đã trích ${list.length} câu từ Word. Duyệt bên dưới rồi lưu vào đề.`
+                        )
+                      } else {
+                        message.warning('Không trích được câu hỏi từ file Word.')
+                      }
+                    })
+                    .catch((err) => message.error(err?.message ?? 'Trích xuất Word thất bại'))
+                    .finally(() => setImportLoading(false))
+                  return
+                }
+                if (!selectedTemplateId) return
                 setImportLoading(true)
-                importExamQuestionsFromExcel(examIdNum, file as File, selectedTemplateId)
+                importExamQuestionsFromExcel(examIdNum, file, selectedTemplateId)
                   .then((res) => {
                     const msg = res.message ?? `Import thành công ${res.data?.imported ?? 0} câu hỏi`
                     message.success(msg)
                     setImportModalOpen(false)
                     setExcelFileList([])
+                    setSelectedTemplateId('')
                     fetchExamQuestions()
                     if (Array.isArray(res.data?.errors) && res.data.errors.length > 0) {
                       message.warning(`Có ${res.data.errors.length} lỗi: ${res.data.errors.slice(0, 3).join(', ')}`)
@@ -1524,10 +1591,10 @@ export default function LectureExamAddQuestions() {
                   })
                   .catch((err) => message.error(err?.message ?? 'Import thất bại'))
                   .finally(() => setImportLoading(false))
-                }}
-              >
-                Upload file
-              </Button>
+              }}
+            >
+              {importModalIsWord ? 'Trích xuất câu hỏi' : 'Upload file'}
+            </Button>
           </div>
         </div>
       </Modal>
