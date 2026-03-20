@@ -112,6 +112,7 @@ export default function LoginPage() {
               ]}
             >
               <Input
+                autoComplete="username"
                 placeholder="name@example.com"
                 size="large"
                 className="rounded-xl border-gray-300 focus:border-transparent focus:ring-2 focus:ring-primary"
@@ -127,6 +128,7 @@ export default function LoginPage() {
             >
               <div className="relative">
                 <Input
+                  autoComplete="current-password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   size="large"
