@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, Checkbox, Dropdown, Form, Input, Modal, Select, Table, Upload, message } from 'antd'
+import { Button, Checkbox, Dropdown, Form, Input, Modal, Segmented, Select, Table, Upload, message } from 'antd'
 import type { UploadFile } from 'antd'
 import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
@@ -110,6 +110,11 @@ function isWordImportFile(file: File | undefined | null): boolean {
   return n.endsWith('.doc') || n.endsWith('.docx')
 }
 
+function isExcelOrCsvImportFile(file: File | undefined | null): boolean {
+  const n = file?.name?.toLowerCase() ?? ''
+  return n.endsWith('.xlsx') || n.endsWith('.xls') || n.endsWith('.csv')
+}
+
 export default function LectureExamAddQuestions() {
   const { examId } = useParams<{ examId: string }>()
   const navigate = useNavigate()
@@ -121,6 +126,8 @@ export default function LectureExamAddQuestions() {
   const [excelFileList, setExcelFileList] = useState<UploadFile[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [importLoading, setImportLoading] = useState(false)
+  /** excel = template + Excel/CSV; word = không template, AI OCR */
+  const [importSourceType, setImportSourceType] = useState<'excel' | 'word'>('excel')
   const [aiScanModalOpen, setAiScanModalOpen] = useState(false)
   const [aiScanFileList, setAiScanFileList] = useState<UploadFile[]>([])
   const [aiScanProgress, setAiScanProgress] = useState(0)
@@ -141,7 +148,7 @@ export default function LectureExamAddQuestions() {
   const [examSubjectId, setExamSubjectId] = useState<number | null>(null)
 
   const importPickedFile = excelFileList[0]?.originFileObj as File | undefined
-  const importModalIsWord = isWordImportFile(importPickedFile)
+  const importModalIsWord = importSourceType === 'word'
 
   const [aiGenModalOpen, setAiGenModalOpen] = useState(false)
   const [aiGenLoading, setAiGenLoading] = useState(false)
@@ -385,6 +392,7 @@ export default function LectureExamAddQuestions() {
 
   const openImportModal = useCallback(() => {
     setImportModalOpen(true)
+    setImportSourceType('excel')
     setExcelFileList([])
     setSelectedTemplateId('')
     getExcelTemplates()
@@ -1481,6 +1489,7 @@ export default function LectureExamAddQuestions() {
         open={importModalOpen}
         onCancel={() => {
           setImportModalOpen(false)
+          setImportSourceType('excel')
           setExcelFileList([])
           setSelectedTemplateId('')
         }}
@@ -1488,9 +1497,30 @@ export default function LectureExamAddQuestions() {
         width={520}
         destroyOnHidden
       >
+        <Segmented
+          block
+          className="mb-4"
+          value={importSourceType}
+          onChange={(v) => {
+            setImportSourceType(v as 'excel' | 'word')
+            setExcelFileList([])
+          }}
+          options={[
+            { label: 'Excel / CSV', value: 'excel' },
+            { label: 'Word (.doc, .docx)', value: 'word' },
+          ]}
+        />
         <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
-          <strong>Excel</strong> (.xls, .xlsx, .csv): chọn template và dùng file mẫu.{' '}
-          <strong>Word</strong> (.doc, .docx): AI trích câu hỏi — kết quả hiện ở mục &quot;Câu hỏi chờ duyệt (OCR)&quot; bên dưới, sau đó lưu vào đề.
+          {importModalIsWord ? (
+            <>
+              <strong>Word:</strong> không dùng template. Chọn file → <strong>Trích xuất câu hỏi</strong> → kết quả ở &quot;Câu hỏi chờ duyệt
+              (OCR)&quot; → <strong>Lưu vào đề</strong>.
+            </>
+          ) : (
+            <>
+              <strong>Excel / CSV:</strong> chọn template và (khuyến nghị) file mẫu. Không áp dụng cho Word.
+            </>
+          )}
         </p>
         {!importModalIsWord && (
           <div className="mb-4">
@@ -1504,13 +1534,8 @@ export default function LectureExamAddQuestions() {
             />
           </div>
         )}
-        {importModalIsWord && (
-          <p className="mb-4 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
-            File Word: không cần template. Bấm &quot;Trích xuất câu hỏi&quot; để AI đọc nội dung và đưa xuống bảng duyệt.
-          </p>
-        )}
         <Upload.Dragger
-          accept=".xlsx,.xls,.csv,.doc,.docx"
+          accept={importModalIsWord ? '.doc,.docx' : '.xlsx,.xls,.csv'}
           fileList={excelFileList}
           maxCount={1}
           beforeUpload={() => false}
@@ -1520,7 +1545,9 @@ export default function LectureExamAddQuestions() {
             <span className="material-symbols-outlined text-5xl text-primary">upload_file</span>
           </p>
           <p className="text-sm font-medium">Kéo file vào đây hoặc chọn file</p>
-          <p className="mt-1 text-xs text-slate-500">Excel, CSV hoặc Word — tối đa 10MB</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {importModalIsWord ? 'Chỉ file Word — tối đa 10MB' : 'Chỉ Excel / CSV — tối đa 10MB'}
+          </p>
         </Upload.Dragger>
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
           {!importModalIsWord ? (
@@ -1541,6 +1568,7 @@ export default function LectureExamAddQuestions() {
             <Button
               onClick={() => {
                 setImportModalOpen(false)
+                setImportSourceType('excel')
                 setExcelFileList([])
                 setSelectedTemplateId('')
               }}
@@ -1550,17 +1578,27 @@ export default function LectureExamAddQuestions() {
             <Button
               type="primary"
               loading={importLoading}
-              disabled={!importPickedFile || (!importModalIsWord && !selectedTemplateId)}
+              disabled={
+                !importPickedFile ||
+                (importModalIsWord
+                  ? !isWordImportFile(importPickedFile)
+                  : !selectedTemplateId || !isExcelOrCsvImportFile(importPickedFile))
+              }
               onClick={() => {
                 const file = excelFileList[0]?.originFileObj as File | undefined
                 if (!file || !examIdNum) return
                 if (importModalIsWord) {
+                  if (!isWordImportFile(file)) {
+                    message.warning('Vui lòng chọn file .doc hoặc .docx')
+                    return
+                  }
                   setImportLoading(true)
                   importExamQuestionsFromOcr(examIdNum, [file])
                     .then((res) => {
                       const list = res.data?.questions ?? []
                       setOcrPending({ sessionId: res.data.sessionId, questions: list })
                       setImportModalOpen(false)
+                      setImportSourceType('excel')
                       setExcelFileList([])
                       setSelectedTemplateId('')
                       if (list.length > 0) {
@@ -1576,12 +1614,17 @@ export default function LectureExamAddQuestions() {
                   return
                 }
                 if (!selectedTemplateId) return
+                if (!isExcelOrCsvImportFile(file)) {
+                  message.warning('Vui lòng chọn file .xls, .xlsx hoặc .csv (hoặc chuyển sang tab Word).')
+                  return
+                }
                 setImportLoading(true)
                 importExamQuestionsFromExcel(examIdNum, file, selectedTemplateId)
                   .then((res) => {
                     const msg = res.message ?? `Import thành công ${res.data?.imported ?? 0} câu hỏi`
                     message.success(msg)
                     setImportModalOpen(false)
+                    setImportSourceType('excel')
                     setExcelFileList([])
                     setSelectedTemplateId('')
                     fetchExamQuestions()
