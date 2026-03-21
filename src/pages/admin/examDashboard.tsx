@@ -16,6 +16,9 @@ import {
 } from '../../apis/adminApi'
 import { getSubjects } from '../../apis/subjectsApi'
 import type { Subject } from '../../apis/subjectsApi'
+import { HtmlWithMath } from '../../components/HtmlWithMath'
+import { QuestionHtmlPreview } from '../../components/QuestionHtmlPreview'
+import { decorateMathInHtml } from '../../utils/mathHtml'
 
 const ADMIN_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuDtoDe4KAOqKQR4ZkYjZLecKqShWOJZek1cA_-RjD9z-nzsBCcYXMobbAsyi6LHNdepq1te0vpJtFVaSJ-OBW_g1fwMn5Qjl0wzLWaCFdoF7nfD-K4UYvE4xXESYTj2XETTyznP3YboVFVZLiPKbk_QCO3mXoi1V5wtVvidHWMZArMrbuPmnDwd871y_PIgsfOE1PddVWrrgCU4dUCqlj2d-7COYui0zhPVpcV1K3vtgi26ptvo_XoGdNCOmz6nMeQdB7ZyM-PIlp1Z'
@@ -37,16 +40,6 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
   Draft: { color: 'default', label: 'Nháp' },
   rejected: { color: 'red', label: 'Từ chối' },
   Rejected: { color: 'red', label: 'Từ chối' },
-}
-
-function stripHtml(html: string | undefined): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '—'
-}
-
-function stripHtmlFull(html: string | undefined): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
 }
 
 function formatTopic(topic: string | undefined): string {
@@ -493,18 +486,22 @@ export default function ExamDashboard() {
                         )
                       },
                       expandedRowRender: (record: AdminReviewQuestion) => {
-                        const content = stripHtmlFull(record.contentHtml)
                         const options = record.options ?? {}
                         const correct = record.correctAnswer
                         return (
                           <div className="rounded border border-slate-200 bg-slate-50/80 p-3 text-left text-sm dark:border-slate-700 dark:bg-slate-800/50">
-                            <p className="mb-2 font-medium text-slate-700 dark:text-slate-200">{content}</p>
+                            <HtmlWithMath
+                              className="mb-2 font-medium text-slate-700 dark:text-slate-200 prose prose-sm max-w-none dark:prose-invert"
+                              html={record.contentHtml || ''}
+                            />
                             {['A', 'B', 'C', 'D'].map((letter) => {
                               const text = options[letter] ?? '—'
                               const isCorrect = correct === letter
                               return (
                                 <p key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
-                                  {letter}. {text} {isCorrect && '(Đáp án đúng)'}
+                                  {letter}.{' '}
+                                  <span dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(text)) }} />{' '}
+                                  {isCorrect && '(Đáp án đúng)'}
                                 </p>
                               )
                             })}
@@ -514,7 +511,12 @@ export default function ExamDashboard() {
                     }}
                     columns={[
                       { title: 'STT', key: 'stt', width: 50, render: (_, __, i) => i + 1 },
-                      { title: 'Nội dung', key: 'content', ellipsis: true, render: (_, r) => stripHtml(r.contentHtml) },
+                      {
+                        title: 'Nội dung',
+                        key: 'content',
+                        ellipsis: false,
+                        render: (_, r) => <QuestionHtmlPreview html={r.contentHtml} lineClamp={2} />,
+                      },
                       { title: 'Đáp án', key: 'correct', width: 70, render: (_, r) => r.correctAnswer },
                       { title: 'Bloom', key: 'bloom', width: 90, render: (_, r) => r.bloomLevel },
                       { title: 'Topic', key: 'topic', width: 100, render: (_, r) => formatTopic(r.topic) },

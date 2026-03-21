@@ -6,6 +6,9 @@ import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
 import { getQuestions, type Question, type QuestionsPagination } from '../../apis/questionsApi'
 import type { LoginUser } from '../../apis/authApi'
+import { HtmlWithMath } from '../../components/HtmlWithMath'
+import { QuestionHtmlPreview } from '../../components/QuestionHtmlPreview'
+import { decorateMathInHtml, plainTextFromHtml } from '../../utils/mathHtml'
 
 const LECTURE_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
@@ -18,16 +21,6 @@ function getStoredUser(): LoginUser | null {
   } catch {
     return null
   }
-}
-
-function stripHtml(html: string): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
-}
-
-function stripHtmlFull(html: string | undefined): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
 }
 
 function formatTopic(topic: string): string {
@@ -133,13 +126,14 @@ export default function LectureQuestionBank() {
       title: 'NỘI DUNG CÂU HỎI',
       key: 'contentHtml',
       width: 240,
-      ellipsis: true,
-      sorter: (a, b) => stripHtml(a.contentHtml).localeCompare(stripHtml(b.contentHtml), 'vi', { sensitivity: 'base' }),
+      ellipsis: false,
+      sorter: (a, b) =>
+        plainTextFromHtml(a.contentHtml).localeCompare(plainTextFromHtml(b.contentHtml), 'vi', {
+          sensitivity: 'base',
+        }),
       sortDirections: ['ascend', 'descend'],
       render: (_, record) => (
-        <span className="text-slate-800 dark:text-slate-200" title={stripHtml(record.contentHtml)}>
-          {stripHtml(record.contentHtml)}
-        </span>
+        <QuestionHtmlPreview html={record.contentHtml} lineClamp={2} className="text-slate-800 dark:text-slate-200" />
       ),
     },
     {
@@ -254,7 +248,6 @@ export default function LectureQuestionBank() {
                     )
                   },
                   expandedRowRender: (record) => {
-                    const content = stripHtmlFull(record.contentHtml)
                     const options = record.options ?? {}
                     const correct = record.correctAnswer
                     const letters = ['A', 'B', 'C', 'D'] as const
@@ -262,7 +255,11 @@ export default function LectureQuestionBank() {
                       <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
                         <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">
                           <span className="text-slate-500 dark:text-slate-400">Nội dung: </span>
-                          {content}
+                          <HtmlWithMath
+                            as="span"
+                            className="prose prose-sm max-w-none align-top dark:prose-invert [&_.katex-display]:inline-block"
+                            html={record.contentHtml || ''}
+                          />
                         </p>
                         <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
                         <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
@@ -271,7 +268,8 @@ export default function LectureQuestionBank() {
                             const isCorrect = correct === letter
                             return (
                               <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
-                                <span className="font-medium">{letter}.</span> {text}
+                                <span className="font-medium">{letter}.</span>{' '}
+                                <span dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(text)) }} />
                                 {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
                               </li>
                             )

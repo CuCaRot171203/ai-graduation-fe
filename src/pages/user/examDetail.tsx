@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Modal, Progress, Spin, message } from 'antd'
-import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { HtmlWithMath } from '../../components/HtmlWithMath'
+import { decorateMathInHtml } from '../../utils/mathHtml'
 import {
   getAiAssignmentQuestions,
   startAiAssignment,
@@ -22,32 +23,6 @@ function normalizeAnswer(v: unknown): string | null {
   const s = String(v).trim().toUpperCase()
   if (!s) return null
   return s.slice(0, 1)
-}
-
-function renderKatex(latex: string, displayMode = false): string {
-  try {
-    return katex.renderToString(latex, { throwOnError: false, displayMode })
-  } catch {
-    return latex
-  }
-}
-
-function decorateMathInHtml(input: string): string {
-  let html = String(input ?? '')
-  html = html.replace(/\\\[((?:.|\n)+?)\\\]/g, (_, expr: string) => renderKatex(expr, true))
-  html = html.replace(/\$\$((?:.|\n)+?)\$\$/g, (_, expr: string) => renderKatex(expr, true))
-  html = html.replace(/\\\(((?:.|\n)+?)\\\)/g, (_, expr: string) => renderKatex(expr, false))
-  html = html.replace(/\$([^$\n]+)\$/g, (_, expr: string) => renderKatex(expr, false))
-  return html
-}
-
-function optionAsHtml(text: unknown): string {
-  const raw = String(text ?? '')
-  const hasLatex = /\\[a-zA-Z]+|\^|_|\{|\}/.test(raw)
-  if (hasLatex) {
-    return renderKatex(raw, false)
-  }
-  return raw
 }
 
 export default function ExamDetail() {
@@ -350,9 +325,9 @@ export default function ExamDetail() {
           {activeQuestion ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div className="mb-3 text-sm font-bold text-primary">Câu {activeQuestion.orderNumber}</div>
-              <div
+              <HtmlWithMath
                 className="rounded-xl bg-slate-50 p-4 text-sm leading-relaxed dark:bg-slate-800"
-                dangerouslySetInnerHTML={{ __html: decorateMathInHtml(activeQuestion.question.contentHtml ?? '') }}
+                html={activeQuestion.question.contentHtml ?? ''}
               />
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {Object.entries(activeQuestion.question.options ?? {}).map(([key, text]) => {
@@ -370,7 +345,7 @@ export default function ExamDetail() {
                       }
                     >
                       <span className="font-bold">{k}.</span>{' '}
-                      <span dangerouslySetInnerHTML={{ __html: optionAsHtml(text) }} />
+                      <span dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(text ?? '')) }} />
                     </button>
                   )
                 })}

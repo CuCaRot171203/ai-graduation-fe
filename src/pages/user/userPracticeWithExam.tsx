@@ -15,14 +15,11 @@ import {
   type AiTopic,
   type PracticeSessionQuestion,
 } from '../../apis/aiExamApi'
+import { HtmlWithMath } from '../../components/HtmlWithMath'
+import { decorateMathInHtml } from '../../utils/mathHtml'
 
 const STUDENT_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
-
-function stripHtml(html: string | undefined | null): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
-}
 
 function fmtTime(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds))
@@ -332,9 +329,9 @@ export default function UserPracticeWithExam() {
                                   </div>
                                 </div>
 
-                                <div
+                                <HtmlWithMath
                                   className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-800 dark:bg-slate-950 dark:text-slate-100"
-                                  dangerouslySetInnerHTML={{ __html: q?.contentHtml ?? '' }}
+                                  html={q?.contentHtml ?? ''}
                                 />
 
                                 <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -355,16 +352,19 @@ export default function UserPracticeWithExam() {
                                         }
                                       >
                                         <div className="text-sm font-black text-slate-900 dark:text-white">{k}.</div>
-                                        <div className="mt-1 text-sm leading-relaxed">{text || '—'}</div>
+                                        <div
+                                          className="mt-1 text-sm leading-relaxed"
+                                          dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(text || '—')) }}
+                                        />
                                       </div>
                                     )
                                   })}
                                 </div>
 
                                 {q?.explanationHtml ? (
-                                  <div
-                                    className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200"
-                                    dangerouslySetInnerHTML={{ __html: q.explanationHtml }}
+                                  <HtmlWithMath
+                                    className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200 prose prose-sm max-w-none dark:prose-invert"
+                                    html={q.explanationHtml}
                                   />
                                 ) : null}
                                 <div className="mt-3 flex flex-wrap gap-2">
@@ -476,9 +476,10 @@ export default function UserPracticeWithExam() {
                           </div>
                         </div>
 
-                        <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                          {stripHtml(active.question?.contentHtml)}
-                        </div>
+                        <HtmlWithMath
+                          className="rounded-xl bg-slate-50 p-4 text-sm text-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                          html={active.question?.contentHtml ?? ''}
+                        />
 
                         <div className="grid gap-3 md:grid-cols-2">
                           {(['A', 'B', 'C', 'D'] as const).map((k) => {
@@ -496,7 +497,10 @@ export default function UserPracticeWithExam() {
                                 }
                               >
                                 <span className={selected ? 'font-black text-primary' : 'font-black'}>{k}.</span>
-                                <span className="text-sm leading-relaxed">{opt || '—'}</span>
+                                <span
+                                  className="text-sm leading-relaxed"
+                                  dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(opt || '—')) }}
+                                />
                               </button>
                             )
                           })}
@@ -591,9 +595,9 @@ export default function UserPracticeWithExam() {
           {aiLoading ? (
             <div className="py-8 text-center text-slate-500">AI đang phân tích câu hỏi...</div>
           ) : aiContentHtml ? (
-            <div
+            <HtmlWithMath
               className="prose prose-sm dark:prose-invert max-h-[60vh] max-w-none overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-4 leading-relaxed dark:border-slate-700 dark:bg-slate-900"
-              dangerouslySetInnerHTML={{ __html: aiContentHtml }}
+              html={aiContentHtml}
             />
           ) : (
             <div className="py-8 text-center text-slate-500">Chưa có nội dung.</div>

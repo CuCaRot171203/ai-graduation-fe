@@ -7,6 +7,9 @@ import TheHeader from '../../components/TheHeader'
 import { getExamById, getExamQuestions, submitExam, updateExam, type Exam, type ExamQuestion } from '../../apis/examsApi'
 import { deleteAiQuestion, updateAiQuestion } from '../../apis/aiExamApi'
 import type { LoginUser } from '../../apis/authApi'
+import { HtmlWithMath } from '../../components/HtmlWithMath'
+import { QuestionHtmlPreview } from '../../components/QuestionHtmlPreview'
+import { decorateMathInHtml } from '../../utils/mathHtml'
 
 const LECTURE_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
@@ -19,16 +22,6 @@ function getStoredUser(): LoginUser | null {
   } catch {
     return null
   }
-}
-
-function stripHtml(html: string | undefined): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || '—'
-}
-
-function stripHtmlFull(html: string | undefined): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
 }
 
 const STATUS_TAG: Record<string, { color: string; label: string }> = {
@@ -201,8 +194,10 @@ export default function LectureExamDetail() {
       {
         title: 'Nội dung',
         key: 'content',
-        ellipsis: true,
-        render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string),
+        ellipsis: false,
+        render: (_: unknown, r: ExamQuestion) => (
+          <QuestionHtmlPreview html={(r.contentHtml ?? r.content_html) as string} lineClamp={2} />
+        ),
       },
       {
         title: 'Đáp án',
@@ -379,7 +374,6 @@ export default function LectureExamDetail() {
                     setExpandedKeys((prev) => (expanded ? [...prev, keyStr] : prev.filter((k) => k !== keyStr)))
                   },
                   expandedRowRender: (record: ExamQuestion) => {
-                    const content = stripHtmlFull((record.contentHtml ?? record.content_html) as string)
                     const options = (record.options ?? {}) as Record<string, string>
                     const correct = (record.correctAnswer ?? record.correct_answer) as string
                     const explanation = (record.explanationHtml ?? record.explanation_html) as string | undefined
@@ -458,7 +452,11 @@ export default function LectureExamDetail() {
                               onChange={(e) => setEditDraft((d) => ({ ...(d ?? {}), contentHtml: e.target.value }))}
                             />
                           ) : (
-                            content
+                            <HtmlWithMath
+                              as="span"
+                              className="prose prose-sm max-w-none align-top dark:prose-invert [&_.katex-display]:inline-block"
+                              html={((record.contentHtml ?? record.content_html) as string) || ''}
+                            />
                           )}
                         </p>
                         <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
@@ -486,7 +484,8 @@ export default function LectureExamDetail() {
                               const isCorrect = correct === letter
                               return (
                                 <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
-                                  <span className="font-medium">{letter}.</span> {text}
+                                  <span className="font-medium">{letter}.</span>{' '}
+                                  <span dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(text)) }} />
                                   {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
                                 </li>
                               )
@@ -538,7 +537,7 @@ export default function LectureExamDetail() {
                                 onChange={(e) => setEditDraft((d) => ({ ...(d ?? {}), explanationHtml: e.target.value }))}
                               />
                             ) : (
-                              <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: explanation }} />
+                              <HtmlWithMath className="prose prose-sm max-w-none dark:prose-invert" html={explanation} />
                             )}
                           </div>
                         ) : null}

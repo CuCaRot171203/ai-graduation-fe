@@ -3,14 +3,10 @@ import { Table, message } from 'antd'
 import SidebarAdmin from '../../components/SidebarAdmin'
 import TheHeader from '../../components/TheHeader'
 import { getQuestions, type Question } from '../../apis/questionsApi'
+import { QuestionHtmlPreview } from '../../components/QuestionHtmlPreview'
 
 const ADMIN_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuB2YKy8f18qbth7H0cAQCXkATE3MsAQI1ezzPpWzXe6rPZoXdaXFkOHWDNh_n3o9WSuxQnzQQHRulPPqiSTzhQRU4WouPHLDflw1Op4WRczR69w5aNyfwHxuxviXrwqctop8ZKROlr3gQeBRnAP-c48xnoMNwYidvstRG04ASbi78xM2l1H0BrWo0UkD0PQ4VbwcomtnA4bKLqtUoDeBmoQlF-Qslmu7jHBBUY_rDWMydmmWYHnyPJiwBGe__oS8uAzmgMvO9czNoIi'
-
-function stripHtml(html?: string): string {
-  if (!html) return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
-}
 
 export default function AdminQuestionBank() {
   const [questionsLoading, setQuestionsLoading] = useState(false)
@@ -62,9 +58,8 @@ export default function AdminQuestionBank() {
                   { title: 'ID', dataIndex: 'id', width: 70 },
                   {
                     title: 'Nội dung',
-                    render: (_: unknown, r: Question) => (
-                      <span title={stripHtml(r.contentHtml)}>{stripHtml(r.contentHtml)}</span>
-                    ),
+                    ellipsis: false,
+                    render: (_: unknown, r: Question) => <QuestionHtmlPreview html={r.contentHtml} lineClamp={2} />,
                   },
                   { title: 'Đáp án', dataIndex: 'correctAnswer', width: 90 },
                   { title: 'Mức độ', dataIndex: 'bloomLevel', width: 130 },

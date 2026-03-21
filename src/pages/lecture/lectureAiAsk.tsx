@@ -6,6 +6,9 @@ import TheHeader from '../../components/TheHeader'
 import { createAiQuestion, generateAiQuestion, getAiGenerationOptions, getTeacherSubjectsFromAiBackend, type AiGenerationOptions } from '../../apis/aiExamApi'
 import type { LoginUser } from '../../apis/authApi'
 import { useNavigate } from 'react-router-dom'
+import { HtmlWithMath } from '../../components/HtmlWithMath'
+import { QuestionHtmlPreview } from '../../components/QuestionHtmlPreview'
+import { decorateMathInHtml } from '../../utils/mathHtml'
 
 const TEACHER_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
@@ -157,11 +160,10 @@ export default function LectureAiAsk() {
       {
         title: 'Nội dung',
         key: 'content',
-        ellipsis: true,
-        render: (_: unknown, r: PreviewQuestion) => {
-          const html = (r.contentHtml ?? r.content_html ?? '') as string
-          return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || '—'
-        },
+        ellipsis: false,
+        render: (_: unknown, r: PreviewQuestion) => (
+          <QuestionHtmlPreview html={(r.contentHtml ?? r.content_html ?? '') as string} lineClamp={2} />
+        ),
       },
       { title: 'Đáp án', key: 'correct', width: 100, render: (_: unknown, r: PreviewQuestion) => (r.correctAnswer ?? r.correct_answer) ?? '—' },
       { title: 'Mức độ khó', key: 'bloom', width: 130, render: (_: unknown, r: PreviewQuestion) => (r.bloomLevel ?? r.bloom_level) ?? '—' },
@@ -465,9 +467,10 @@ export default function LectureAiAsk() {
                                   onChange={(e) => setEditDraft((d) => ({ ...(d ?? {}), contentHtml: e.target.value }))}
                                 />
                               ) : (
-                                <div className="mb-3 font-medium text-slate-800 dark:text-slate-200">
-                                  {(r.contentHtml ?? r.content_html ?? '').toString().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'}
-                                </div>
+                                <HtmlWithMath
+                                  className="mb-3 font-medium text-slate-800 dark:text-slate-200 prose prose-sm max-w-none dark:prose-invert"
+                                  html={(r.contentHtml ?? r.content_html ?? '') as string}
+                                />
                               )}
                               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                                 {['A', 'B', 'C', 'D'].map((k) => (
@@ -485,7 +488,10 @@ export default function LectureAiAsk() {
                                       />
                                     ) : (
                                       <>
-                                        <span className={correct === k ? 'font-semibold text-green-600 dark:text-green-400' : ''}>{options[k] ?? '—'}</span>
+                                        <span
+                                          className={correct === k ? 'font-semibold text-green-600 dark:text-green-400' : ''}
+                                          dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(options[k] ?? '—')) }}
+                                        />
                                         {correct === k ? <span className="ml-2 text-xs">(Đúng)</span> : null}
                                       </>
                                     )}
@@ -580,9 +586,10 @@ export default function LectureAiAsk() {
                       onChange={(e) => setEditDraft((d) => ({ ...(d ?? {}), contentHtml: e.target.value }))}
                     />
                   ) : (
-                    <div className="mb-3 font-medium text-slate-800 dark:text-slate-200">
-                      {(r.contentHtml ?? r.content_html ?? '').toString().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'}
-                    </div>
+                    <HtmlWithMath
+                      className="mb-3 font-medium text-slate-800 dark:text-slate-200 prose prose-sm max-w-none dark:prose-invert"
+                      html={(r.contentHtml ?? r.content_html ?? '') as string}
+                    />
                   )}
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     {['A', 'B', 'C', 'D'].map((k) => (
@@ -600,7 +607,10 @@ export default function LectureAiAsk() {
                           />
                         ) : (
                           <>
-                            <span className={correct === k ? 'font-semibold text-green-600 dark:text-green-400' : ''}>{options[k] ?? '—'}</span>
+                            <span
+                              className={correct === k ? 'font-semibold text-green-600 dark:text-green-400' : ''}
+                              dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(options[k] ?? '—')) }}
+                            />
                             {correct === k ? <span className="ml-2 text-xs">(Đúng)</span> : null}
                           </>
                         )}
@@ -637,7 +647,7 @@ export default function LectureAiAsk() {
                           onChange={(e) => setEditDraft((d) => ({ ...(d ?? {}), explanationHtml: e.target.value }))}
                         />
                       ) : (
-                        <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: explanation }} />
+                        <HtmlWithMath className="prose prose-sm max-w-none dark:prose-invert" html={explanation} />
                       )}
                     </div>
                   ) : null}

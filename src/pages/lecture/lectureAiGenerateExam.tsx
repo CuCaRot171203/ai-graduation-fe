@@ -13,6 +13,9 @@ import {
 } from '../../apis/aiExamApi'
 import type { Subject } from '../../apis/subjectsApi'
 import { useNavigate } from 'react-router-dom'
+import { HtmlWithMath } from '../../components/HtmlWithMath'
+import { QuestionHtmlPreview } from '../../components/QuestionHtmlPreview'
+import { decorateMathInHtml } from '../../utils/mathHtml'
 
 const TEACHER_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
@@ -266,9 +269,11 @@ export default function LectureAiGenerateExam() {
         key: 'content',
         render: (_, r) => (
           <div className="max-w-[520px]">
-            <div className="line-clamp-2 text-sm text-slate-800 dark:text-slate-200">
-              {r.contentHtml || r.content_html || '—'}
-            </div>
+            <QuestionHtmlPreview
+              html={(r.contentHtml || r.content_html || '') as string}
+              lineClamp={2}
+              className="text-sm text-slate-800 dark:text-slate-200"
+            />
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               {r.subject?.code && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">{r.subject.code}</span>}
               {r.topic && <span>topic: {r.topic}</span>}
@@ -730,10 +735,7 @@ export default function LectureAiGenerateExam() {
                                 ) : (
                                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200">
                                     {view.contentHtml ? (
-                                      <div
-                                        className="prose prose-sm max-w-none dark:prose-invert"
-                                        dangerouslySetInnerHTML={{ __html: view.contentHtml }}
-                                      />
+                                      <HtmlWithMath className="prose prose-sm max-w-none dark:prose-invert" html={view.contentHtml} />
                                     ) : (
                                       '—'
                                     )}
@@ -759,9 +761,12 @@ export default function LectureAiGenerateExam() {
                                         className="rounded-lg"
                                       />
                                     ) : (
-                                      <div className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
-                                        {view.options[k] || '—'}
-                                      </div>
+                                      <div
+                                        className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200"
+                                        dangerouslySetInnerHTML={{
+                                          __html: decorateMathInHtml(String(view.options[k] || '—')),
+                                        }}
+                                      />
                                     )}
                                   </div>
                                 ))}
@@ -832,9 +837,9 @@ export default function LectureAiGenerateExam() {
                                 ) : (
                                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200">
                                     {view.explanationHtml ? (
-                                      <div
+                                      <HtmlWithMath
                                         className="prose prose-sm max-w-none dark:prose-invert"
-                                        dangerouslySetInnerHTML={{ __html: view.explanationHtml }}
+                                        html={view.explanationHtml}
                                       />
                                     ) : (
                                       '—'

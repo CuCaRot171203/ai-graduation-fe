@@ -4,7 +4,10 @@ import { Button, Checkbox, Dropdown, Form, Input, Modal, Segmented, Select, Tabl
 import type { UploadFile } from 'antd'
 import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
+import { HtmlWithMath } from '../../components/HtmlWithMath'
+import { QuestionHtmlPreview } from '../../components/QuestionHtmlPreview'
 import { LatexMixed, LatexParagraphs, ocrPlainText } from '../../components/LatexMixed'
+import { decorateMathInHtml } from '../../utils/mathHtml'
 import {
   getExcelTemplates,
   downloadExcelTemplate,
@@ -58,16 +61,6 @@ const ROUNDING_OPTIONS = [
   { value: '2_decimals', label: '2 chữ số thập phân' },
   { value: '3_decimals', label: '3 chữ số thập phân' },
 ]
-
-function stripHtml(html: string | undefined): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '—'
-}
-
-function stripHtmlFull(html: string | undefined): string {
-  if (!html || typeof html !== 'string') return '—'
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '—'
-}
 
 function formatTopic(topic: string | undefined): string {
   if (!topic) return '—'
@@ -803,7 +796,6 @@ export default function LectureExamAddQuestions() {
                       )
                     },
                     expandedRowRender: (record: ExamQuestion) => {
-                      const content = stripHtmlFull((record.contentHtml ?? record.content_html) as string)
                       const options = (record.options ?? {}) as Record<string, string>
                       const correct = (record.correctAnswer ?? record.correct_answer) as string
                       const qType = ((record as { questionType?: string; question_type?: string }).questionType ?? (record as { question_type?: string }).question_type ?? 'trac_nghiem_1_dap_an') as string
@@ -825,7 +817,13 @@ export default function LectureExamAddQuestions() {
                               <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
                                 {['a', 'b', 'c', 'd'].map((k) => (
                                   <li key={k} className={answers[k] ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
-                                    <span className="font-medium">{k}).</span> {(isEditing ? draftOpts[k] : options[k]) ?? '—'} — {answers[k] ? 'Đúng' : 'Sai'}
+                                    <span className="font-medium">{k}).</span>{' '}
+                                    <span
+                                      dangerouslySetInnerHTML={{
+                                        __html: decorateMathInHtml(String((isEditing ? draftOpts[k] : options[k]) ?? '—')),
+                                      }}
+                                    />{' '}
+                                    — {answers[k] ? 'Đúng' : 'Sai'}
                                   </li>
                                 ))}
                               </ul>
@@ -859,7 +857,8 @@ export default function LectureExamAddQuestions() {
                                 const isCorrect = correctSet.has(letter)
                                 return (
                                   <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
-                                    <span className="font-medium">{letter}.</span> {text}
+                                    <span className="font-medium">{letter}.</span>{' '}
+                                    <span dangerouslySetInnerHTML={{ __html: decorateMathInHtml(String(text)) }} />
                                     {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
                                   </li>
                                 )
@@ -929,7 +928,13 @@ export default function LectureExamAddQuestions() {
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                             <p className="font-medium text-slate-700 dark:text-slate-200">
                               <span className="text-slate-500 dark:text-slate-400">Nội dung: </span>
-                              {isEditing ? null : content}
+                              {isEditing ? null : (
+                                <HtmlWithMath
+                                  as="span"
+                                  className="prose prose-sm max-w-none align-top dark:prose-invert [&_.katex-display]:inline-block"
+                                  html={((record.contentHtml ?? record.content_html) as string) || ''}
+                                />
+                              )}
                             </p>
                             <div className="flex items-center gap-2">
                               {!isEditing ? (
@@ -960,7 +965,10 @@ export default function LectureExamAddQuestions() {
                           {(draft.explanationHtml ?? (draft as { explanation_html?: string }).explanation_html) ? (
                             <div className="mt-3 rounded border border-slate-200 bg-white p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
                               <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Lời giải</p>
-                              <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: ((draft.explanationHtml ?? (draft as { explanation_html?: string }).explanation_html) as string) }} />
+                              <HtmlWithMath
+                                className="prose prose-sm max-w-none dark:prose-invert"
+                                html={((draft.explanationHtml ?? (draft as { explanation_html?: string }).explanation_html) as string) || ''}
+                              />
                             </div>
                           ) : null}
                         </div>
@@ -997,7 +1005,14 @@ export default function LectureExamAddQuestions() {
                   })}
                   columns={[
                     { title: 'STT', key: 'stt', width: 60, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
-                    { title: 'Nội dung', key: 'content', ellipsis: true, render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
+                    {
+                      title: 'Nội dung',
+                      key: 'content',
+                      ellipsis: false,
+                      render: (_: unknown, r: ExamQuestion) => (
+                        <QuestionHtmlPreview html={(r.contentHtml ?? r.content_html) as string} lineClamp={2} />
+                      ),
+                    },
                     { title: 'Đáp án đúng', key: 'correct', width: 140, render: (_: unknown, r: ExamQuestion) => formatCorrectAnswer((r.correctAnswer ?? r.correct_answer) as string, (r as { questionType?: string; question_type?: string }).questionType ?? (r as { question_type?: string }).question_type) },
                     { title: 'Bloom', key: 'bloom', width: 100, render: (_: unknown, r: ExamQuestion) => (r.bloomLevel ?? r.bloom_level) ?? '—' },
                     { title: 'Topic', key: 'topic', width: 120, render: (_: unknown, r: ExamQuestion) => formatTopic(r.topic as string) },
@@ -1289,7 +1304,10 @@ export default function LectureExamAddQuestions() {
                       {isEditing ? (
                         <Input.TextArea rows={3} value={(draft.contentHtml ?? '') as string} onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), contentHtml: e.target.value }))} />
                       ) : (
-                        <div className="font-medium text-slate-800 dark:text-slate-200">{stripHtmlFull((record.contentHtml ?? record.content_html) as string)}</div>
+                        <HtmlWithMath
+                          className="font-medium text-slate-800 dark:text-slate-200 prose prose-sm max-w-none dark:prose-invert"
+                          html={((record.contentHtml ?? record.content_html) as string) || ''}
+                        />
                       )}
                     </div>
                     {renderOptionsSection()}
@@ -1298,7 +1316,10 @@ export default function LectureExamAddQuestions() {
                       {isEditing ? (
                         <Input.TextArea rows={2} value={(draft.explanationHtml ?? '') as string} onChange={(e) => setAiGenPreviewDraft((d) => ({ ...(d ?? {}), explanationHtml: e.target.value }))} />
                       ) : (
-                        <div className="text-slate-700 dark:text-slate-200">{stripHtmlFull((record.explanationHtml ?? record.explanation_html) as string) || '—'}</div>
+                        <HtmlWithMath
+                          className="text-slate-700 dark:text-slate-200 prose prose-sm max-w-none dark:prose-invert"
+                          html={((record.explanationHtml ?? record.explanation_html) as string) || '—'}
+                        />
                       )}
                     </div>
                   </div>
@@ -1307,7 +1328,14 @@ export default function LectureExamAddQuestions() {
             }}
             columns={[
               { title: 'STT', key: 'stt', width: 60, render: (_: unknown, __: ExamQuestion, i: number) => i + 1 },
-              { title: 'Nội dung', key: 'content', ellipsis: true, render: (_: unknown, r: ExamQuestion) => stripHtml((r.contentHtml ?? r.content_html) as string) },
+              {
+                title: 'Nội dung',
+                key: 'content',
+                ellipsis: false,
+                render: (_: unknown, r: ExamQuestion) => (
+                  <QuestionHtmlPreview html={(r.contentHtml ?? r.content_html) as string} lineClamp={2} />
+                ),
+              },
               { title: 'Đáp án đúng', key: 'correct', width: 140, render: (_: unknown, r: ExamQuestion) => formatCorrectAnswer((r.correctAnswer ?? r.correct_answer) as string, (r as { questionType?: string; question_type?: string }).questionType ?? (r as { question_type?: string }).question_type) },
               { title: 'Mức độ khó', key: 'bloom', width: 120, render: (_: unknown, r: ExamQuestion) => (r.bloomLevel ?? r.bloom_level) ?? '—' },
               { title: 'Topic', key: 'topic', width: 160, render: (_: unknown, r: ExamQuestion) => topicLabelVi(r.topic as string) },
