@@ -134,6 +134,7 @@ export default function LectureExamAddQuestions() {
   const [saveOcrLoading, setSaveOcrLoading] = useState(false)
   const [expandedExamQuestionKeys, setExpandedExamQuestionKeys] = useState<(string | number)[]>([])
   const [expandedOcrKeys, setExpandedOcrKeys] = useState<(string | number)[]>([])
+  const [editingOcrIndex, setEditingOcrIndex] = useState<number | null>(null)
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState<Partial<ExamQuestion> | null>(null)
   const dragIndexRef = useRef<number | null>(null)
@@ -421,6 +422,8 @@ export default function LectureExamAddQuestions() {
         correct_answer: (q.correct_answer ?? q.correctAnswer) ?? '',
         bloom_level: (q.bloom_level ?? q.bloomLevel) ?? '',
         topic: (q.topic as string) ?? '',
+        content_html: (q.content_html ?? q.contentHtml) ?? undefined,
+        options: q.options ?? undefined,
       })),
     }
     reviewOcrSession(examIdNum, ocrPending.sessionId, body)
@@ -557,96 +560,180 @@ export default function LectureExamAddQuestions() {
                         setExpandedOcrKeys((prev) => (expanded ? [...prev, key] : prev.filter((k) => k !== key)))
                       },
                       expandedRowRender: (record: ExamQuestion) => {
-                        const contentRaw = ocrPlainText((record.contentHtml ?? record.content_html) as string)
+                        const content = (record.contentHtml ?? record.content_html) as string
+                        const contentRaw = ocrPlainText(content)
                         const options = (record.options ?? {}) as Record<string, string>
                         const correct = (record.correct_answer ?? record.correctAnswer) as string
+                        const bloom = (record.bloom_level ?? record.bloomLevel) as string
+                        const topic = (record.topic as string) ?? ''
+                        const explanation = (record.explanationHtml ?? record.explanation_html ?? '') as string
                         const qType = ((record as { questionType?: string; question_type?: string }).questionType ?? (record as { question_type?: string }).question_type ?? 'trac_nghiem_1_dap_an') as string
-                        if (qType === 'trac_nghiem_dung_sai') {
-                          let answers: Record<string, boolean> = {}
-                          try {
-                            answers = JSON.parse(correct || '{}') as Record<string, boolean>
-                          } catch { /* ignore */ }
-                          const idx = ocrPending.questions.indexOf(record)
-                          const setAnswer = (k: string, v: boolean) => {
-                            const next = { ...answers, [k]: v }
-                            updateOcrQuestion(idx, 'correct_answer', JSON.stringify(next))
+                        const idx = ocrPending.questions.indexOf(record)
+                        const isEditing = editingOcrIndex === idx
+
+                        if (isEditing) {
+                          const optKeys = qType === 'trac_nghiem_dung_sai' ? ['a', 'b', 'c', 'd'] : ['A', 'B', 'C', 'D']
+                          const showOptions = qType !== 'trac_nghiem_tra_loi_ngan' && qType !== 'tu_luan'
+
+                          const correctAnswerSelect = () => {
+                            if (qType === 'trac_nghiem_dung_sai') {
+                              let answers: Record<string, boolean> = {}
+                              try { answers = JSON.parse(correct || '{}') as Record<string, boolean> } catch { /* ignore */ }
+                              return (
+                                <div className="space-y-1">
+                                  {['a', 'b', 'c', 'd'].map((k) => (
+                                    <div key={k} className="flex items-center gap-2">
+                                      <span className="w-5 text-xs font-semibold">{k})</span>
+                                      <Select size="small" style={{ width: 90 }} value={answers[k]} onChange={(v) => updateOcrQuestion(idx, 'correct_answer', JSON.stringify({ ...answers, [k]: v === true }))} options={[{ value: true, label: 'Đúng' }, { value: false, label: 'Sai' }]} />
+                                    </div>
+                                  ))}
+                                </div>
+                              )
+                            }
+                            if (qType === 'trac_nghiem_nhieu_dap_an') {
+                              const vals = correct ? correct.split(',').map((s) => s.trim()).filter(Boolean) : []
+                              return <Select mode="multiple" size="small" className="w-full" value={vals} onChange={(v) => updateOcrQuestion(idx, 'correct_answer', Array.isArray(v) ? v.join(',') : v)} options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} />
+                            }
+                            if (qType === 'trac_nghiem_tra_loi_ngan') {
+                              return <Input size="small" value={correct} onChange={(e) => updateOcrQuestion(idx, 'correct_answer', e.target.value)} placeholder="Số" />
+                            }
+                            if (qType === 'tu_luan') {
+                              return <Input.TextArea rows={2} value={correct} onChange={(e) => updateOcrQuestion(idx, 'correct_answer', e.target.value)} placeholder="Đáp án / Lời giải" />
+                            }
+                            return <Select size="small" className="w-full" value={correct || undefined} onChange={(v) => updateOcrQuestion(idx, 'correct_answer', v)} options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} />
                           }
+
                           return (
-                            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
-                              <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
-                                <LatexParagraphs text={contentRaw} />
-                              </div>
-                              <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các phát biểu (chọn Đúng/Sai):</p>
-                              <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                                {['a', 'b', 'c', 'd'].map((k) => (
-                                  <li key={k} className="flex items-center gap-2">
-                                    <span className="font-medium w-5">{k}).</span>
-                                    <span className="flex-1">
-                                      <LatexMixed text={ocrPlainText(options[k])} />
-                                    </span>
-                                    <Select
-                                      size="small"
-                                      style={{ width: 90 }}
-                                      value={answers[k]}
-                                      onChange={(v) => setAnswer(k, v === true)}
-                                      options={[{ value: true, label: 'Đúng' }, { value: false, label: 'Sai' }]}
-                                    />
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )
-                        }
-                        if (qType === 'trac_nghiem_tra_loi_ngan') {
-                          return (
-                            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
-                              <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
-                                <LatexParagraphs text={contentRaw} />
-                              </div>
-                              <p className="text-sm text-slate-600 dark:text-slate-300">
-                                Đáp án:{' '}
-                                <span className="font-semibold text-green-600 dark:text-green-400">
-                                  <LatexMixed text={String(correct || '—')} />
-                                </span>
-                              </p>
-                            </div>
-                          )
-                        }
-                        if (qType === 'tu_luan') {
-                          return (
-                            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
-                              <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
-                                <LatexParagraphs text={contentRaw} />
-                              </div>
-                              <div className="text-sm text-slate-600 dark:text-slate-300">
-                                <span className="font-medium">Đáp án / Lời giải:</span>
-                                <div className="mt-1 text-green-700 dark:text-green-400">
-                                  <LatexParagraphs text={correct || '(Chưa có đáp án)'} />
+                            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold">Chỉnh sửa câu hỏi</span>
+                                <div className="flex gap-2">
+                                  <Button size="small" onClick={() => setEditingOcrIndex(null)}>Hủy</Button>
+                                  <Button size="small" type="primary" onClick={() => setEditingOcrIndex(null)}>Lưu</Button>
                                 </div>
                               </div>
+                              <div>
+                                <div className="mb-1 text-xs font-semibold text-slate-500">Nội dung câu hỏi</div>
+                                <Input.TextArea rows={3} value={ocrPlainText(content)} onChange={(e) => updateOcrQuestion(idx, 'content_html', e.target.value)} />
+                              </div>
+                              {showOptions && (
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                  {optKeys.map((k) => (
+                                    <div key={k} className="flex items-center gap-2">
+                                      <span className="w-5 font-semibold">{qType === 'trac_nghiem_dung_sai' ? `${k})` : `${k}.`}</span>
+                                      <Input value={options[k] ?? ''} onChange={(e) => updateOcrQuestion(idx, 'options', { ...options, [k]: e.target.value })} />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                                <div>
+                                  <div className="mb-1 text-xs font-semibold text-slate-500">Đáp án đúng</div>
+                                  {correctAnswerSelect()}
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-xs font-semibold text-slate-500">Bloom</div>
+                                  <Select value={bloom || undefined} onChange={(v) => updateOcrQuestion(idx, 'bloom_level', v)} options={BLOOM_LEVEL_OPTIONS} className="w-full" size="small" />
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-xs font-semibold text-slate-500">Topic</div>
+                                  <Input value={topic} onChange={(e) => updateOcrQuestion(idx, 'topic', e.target.value)} size="small" />
+                                </div>
+                              </div>
+                              <div>
+                                <div className="mb-1 text-xs font-semibold text-slate-500">Lời giải</div>
+                                <Input.TextArea rows={2} value={explanation} onChange={(e) => updateOcrQuestion(idx, 'explanation_html', e.target.value)} />
+                              </div>
                             </div>
                           )
                         }
-                        const correctSet = qType === 'trac_nghiem_nhieu_dap_an' ? new Set((correct || '').split(',').map((s) => s.trim())) : new Set([correct])
+
+                        const renderReadOnlyView = () => {
+                          if (qType === 'trac_nghiem_dung_sai') {
+                            let answers: Record<string, boolean> = {}
+                            try { answers = JSON.parse(correct || '{}') as Record<string, boolean> } catch { /* ignore */ }
+                            const setAnswer = (k: string, v: boolean) => {
+                              const next = { ...answers, [k]: v }
+                              updateOcrQuestion(idx, 'correct_answer', JSON.stringify(next))
+                            }
+                            return (
+                              <>
+                                <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                                  <LatexParagraphs text={contentRaw} />
+                                </div>
+                                <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các phát biểu (chọn Đúng/Sai):</p>
+                                <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                                  {['a', 'b', 'c', 'd'].map((k) => (
+                                    <li key={k} className="flex items-center gap-2">
+                                      <span className="font-medium w-5">{k}).</span>
+                                      <span className="flex-1"><LatexMixed text={ocrPlainText(options[k])} /></span>
+                                      <Select size="small" style={{ width: 90 }} value={answers[k]} onChange={(v) => setAnswer(k, v === true)} options={[{ value: true, label: 'Đúng' }, { value: false, label: 'Sai' }]} />
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            )
+                          }
+                          if (qType === 'trac_nghiem_tra_loi_ngan') {
+                            return (
+                              <>
+                                <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                                  <LatexParagraphs text={contentRaw} />
+                                </div>
+                                <p className="text-sm text-slate-600 dark:text-slate-300">
+                                  Đáp án:{' '}
+                                  <span className="font-semibold text-green-600 dark:text-green-400">
+                                    <LatexMixed text={String(correct || '—')} />
+                                  </span>
+                                </p>
+                              </>
+                            )
+                          }
+                          if (qType === 'tu_luan') {
+                            return (
+                              <>
+                                <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                                  <LatexParagraphs text={contentRaw} />
+                                </div>
+                                <div className="text-sm text-slate-600 dark:text-slate-300">
+                                  <span className="font-medium">Đáp án / Lời giải:</span>
+                                  <div className="mt-1 text-green-700 dark:text-green-400">
+                                    <LatexParagraphs text={correct || '(Chưa có đáp án)'} />
+                                  </div>
+                                </div>
+                              </>
+                            )
+                          }
+                          const correctSet = qType === 'trac_nghiem_nhieu_dap_an' ? new Set((correct || '').split(',').map((s) => s.trim())) : new Set([correct])
+                          return (
+                            <>
+                              <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+                                <LatexParagraphs text={contentRaw} />
+                              </div>
+                              <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
+                              <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                                {['A', 'B', 'C', 'D'].map((letter) => {
+                                  const optText = options[letter] ?? '—'
+                                  const isCorrect = correctSet.has(letter)
+                                  return (
+                                    <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
+                                      <span className="font-medium">{letter}.</span>{' '}
+                                      <LatexMixed text={ocrPlainText(optText)} />
+                                      {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            </>
+                          )
+                        }
+
                         return (
                           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
-                            <div className="mb-3 font-medium text-slate-700 dark:text-slate-200">
-                              <LatexParagraphs text={contentRaw} />
+                            <div className="mb-2 flex justify-end">
+                              <Button size="small" onClick={() => setEditingOcrIndex(idx)} icon={<span className="material-symbols-outlined text-lg">edit</span>}>Sửa</Button>
                             </div>
-                            <p className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">Các đáp án:</p>
-                            <ul className="list-inside list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                              {['A', 'B', 'C', 'D'].map((letter) => {
-                                const optText = options[letter] ?? '—'
-                                const isCorrect = correctSet.has(letter)
-                                return (
-                                  <li key={letter} className={isCorrect ? 'font-semibold text-green-600 dark:text-green-400' : ''}>
-                                    <span className="font-medium">{letter}.</span>{' '}
-                                    <LatexMixed text={ocrPlainText(optText)} />
-                                    {isCorrect && <span className="ml-2 text-xs">(Đáp án đúng)</span>}
-                                  </li>
-                                )
-                              })}
-                            </ul>
+                            {renderReadOnlyView()}
                           </div>
                         )
                       },

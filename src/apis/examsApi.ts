@@ -386,6 +386,8 @@ export type OcrReviewQuestionItem = {
   correct_answer: string
   bloom_level: string
   topic: string
+  content_html?: string
+  options?: Record<string, string>
 }
 
 /** PATCH /api/exams/:examId/ocr-sessions/:sessionId/review - duyệt từng câu */

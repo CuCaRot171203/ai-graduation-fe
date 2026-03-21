@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Key as ReactKey } from 'react'
-import { message, Select, Table, Tag } from 'antd'
+import { Button, Input, message, Select, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import SidebarLecture from '../../components/SidebarLecture'
 import TheHeader from '../../components/TheHeader'
@@ -9,6 +9,7 @@ import type { LoginUser } from '../../apis/authApi'
 import { HtmlWithMath } from '../../components/HtmlWithMath'
 import { QuestionHtmlPreview } from '../../components/QuestionHtmlPreview'
 import { decorateMathInHtml, plainTextFromHtml } from '../../utils/mathHtml'
+import { updateAiQuestion } from '../../apis/aiExamApi'
 
 const LECTURE_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBB_XeKnZp9FDwVkj_Dy-H1n-xZmsvyK3qEfeV4N8hiQ0EBpSyghQyWE2inyxBJRk85zvCZgQh7Xqduh5k669Ew1FHs-sq1wEODa3FavZqUXGgwx8V-6RPffWs94LDGhFvqvzM4Ma_FO41SDrs7rgy-_4RvdxG_NWHrnInTsf2oLmfM8hnBIWCYOfxQflTRqCVS3BYPV5VMa58TLuy2W8Mz7WqqZC3-QxiE9UlwdL81gwNtPAg_VTMEhXnaGJfjrXDv9tlEWVI_u_On'
@@ -54,6 +55,8 @@ export default function LectureQuestionBank() {
   const [expandedRowKeys, setExpandedRowKeys] = useState<ReactKey[]>([])
   const [filterBloom, setFilterBloom] = useState<string | undefined>(undefined)
   const [filterTopic, setFilterTopic] = useState<string | undefined>(undefined)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editDraft, setEditDraft] = useState<Partial<Question> | null>(null)
 
   const fetchQuestions = useCallback(() => {
     setLoading(true)
@@ -77,6 +80,44 @@ export default function LectureQuestionBank() {
     const t = setTimeout(() => fetchQuestions(), 0)
     return () => clearTimeout(t)
   }, [fetchQuestions])
+
+  const startEdit = (record: QuestionRow) => {
+    setEditingId(record.id)
+    setEditDraft({
+      contentHtml: record.contentHtml,
+      options: record.options,
+      correctAnswer: record.correctAnswer,
+      bloomLevel: record.bloomLevel,
+      topic: record.topic,
+    })
+  }
+  const cancelEdit = () => { setEditingId(null); setEditDraft(null) }
+  const saveEdit = async () => {
+    if (!editingId || !editDraft) return
+    try {
+      await updateAiQuestion(editingId, {
+        content_html: editDraft.contentHtml,
+        options: editDraft.options as Record<string, string>,
+        correct_answer: editDraft.correctAnswer,
+        bloom_level: editDraft.bloomLevel,
+        topic: editDraft.topic,
+      })
+      message.success('Đã cập nhật câu hỏi')
+      cancelEdit()
+      fetchQuestions()
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Cập nhật thất bại')
+    }
+  }
+
+  const bloomLevelSelectOptions = [
+    { value: 'nhan_biet', label: 'Nhận biết' },
+    { value: 'thong_hieu', label: 'Thông hiểu' },
+    { value: 'van_dung', label: 'Vận dụng' },
+    { value: 'phan_tich', label: 'Phân tích' },
+    { value: 'danh_gia', label: 'Đánh giá' },
+    { value: 'sang_tao', label: 'Sáng tạo' },
+  ]
 
   const renderBloomLevel = (bloomLevel: string) => {
     const key = (bloomLevel || '').toLowerCase().replace(/\s+/g, '_')
@@ -251,8 +292,49 @@ export default function LectureQuestionBank() {
                     const options = record.options ?? {}
                     const correct = record.correctAnswer
                     const letters = ['A', 'B', 'C', 'D'] as const
+
+                    if (record.id === editingId && editDraft) {
+                      return (
+                        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+                          <div className="flex justify-between">
+                            <span className="text-sm font-bold">Chỉnh sửa</span>
+                            <div className="flex gap-2">
+                              <Button size="small" onClick={cancelEdit}>Hủy</Button>
+                              <Button size="small" type="primary" onClick={saveEdit}>Lưu</Button>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="mb-1 text-xs font-semibold text-slate-500">Nội dung câu hỏi</div>
+                            <Input.TextArea rows={3} value={editDraft.contentHtml} onChange={(e) => setEditDraft((d) => ({ ...d, contentHtml: e.target.value }))} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {letters.map((k) => (
+                              <Input key={k} addonBefore={k} value={editDraft.options?.[k] ?? ''} onChange={(e) => setEditDraft((d) => ({ ...d, options: { ...d?.options, [k]: e.target.value } }))} />
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <div className="mb-1 text-xs font-semibold text-slate-500">Đáp án đúng</div>
+                              <Select className="w-full" value={editDraft.correctAnswer} onChange={(v) => setEditDraft((d) => ({ ...d, correctAnswer: v }))} options={[{ value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'C', label: 'C' }, { value: 'D', label: 'D' }]} />
+                            </div>
+                            <div>
+                              <div className="mb-1 text-xs font-semibold text-slate-500">Bloom</div>
+                              <Select className="w-full" value={editDraft.bloomLevel} onChange={(v) => setEditDraft((d) => ({ ...d, bloomLevel: v }))} options={bloomLevelSelectOptions} />
+                            </div>
+                            <div>
+                              <div className="mb-1 text-xs font-semibold text-slate-500">Topic</div>
+                              <Input value={editDraft.topic} onChange={(e) => setEditDraft((d) => ({ ...d, topic: e.target.value }))} placeholder="Topic" />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    }
+
                     return (
                       <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-left dark:border-slate-700 dark:bg-slate-800/50">
+                        <div className="mb-2 flex justify-end">
+                          <Button size="small" onClick={() => startEdit(record)} icon={<span className="material-symbols-outlined text-lg">edit</span>}>Sửa</Button>
+                        </div>
                         <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">
                           <span className="text-slate-500 dark:text-slate-400">Nội dung: </span>
                           <HtmlWithMath
